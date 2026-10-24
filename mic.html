@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Violin Hero · Microfone</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #1a1024;
+        color: #f2eaf7;
+        display: grid;
+        place-items: center;
+      }
+      main {
+        width: min(100% - 32px, 420px);
+        display: grid;
+        gap: 16px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.5rem;
+      }
+      button {
+        font: inherit;
+        font-size: 1.1rem;
+        padding: 14px;
+        border: 0;
+        border-radius: 12px;
+        background: #e0a33a;
+        color: #1a1024;
+        font-weight: 600;
+      }
+      .meter {
+        height: 28px;
+        border-radius: 14px;
+        background: #2e2140;
+        overflow: hidden;
+      }
+      .meter > div {
+        height: 100%;
+        width: 0;
+        background: linear-gradient(90deg, #4cc38a 0 70%, #e0a33a 70% 90%, #e5484d 90%);
+        background-size: var(--full, 100%) 100%;
+        transition: width 50ms linear;
+      }
+      .readout {
+        display: flex;
+        justify-content: space-between;
+        font-variant-numeric: tabular-nums;
+        opacity: 0.85;
+      }
+      #status {
+        margin: 0;
+        min-height: 1.5em;
+      }
+      #status[data-error] {
+        color: #ff8a8f;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Microfone</h1>
+      <p id="status">Toque em Ativar e permita o acesso ao microfone.</p>
+      <button id="toggle" type="button">Ativar microfone</button>
+      <div class="meter" role="meter" aria-label="Nível do microfone" aria-valuemin="-60" aria-valuemax="0">
+        <div id="bar"></div>
+      </div>
+      <div class="readout">
+        <span>RMS <strong id="rms">–</strong> dBFS</span>
+        <span>Pico <strong id="peak">–</strong> dBFS</span>
+      </div>
+    </main>
+    <script type="module" src="/src/mic/main.ts"></script>
+  </body>
+</html>
