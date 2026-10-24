@@ -10,7 +10,7 @@ Prévia: https://higoranjos.github.io/violin-hero-proto/
 
 ## Rodando localmente
 
-Requer Node 22.
+Requer Node 20.19+ (o CI usa Node 22).
 
 ```sh
 npm ci
