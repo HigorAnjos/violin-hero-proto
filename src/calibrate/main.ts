@@ -97,6 +97,8 @@ function showIdle(): void {
 
 function showResult(done: CalibrationResult): void {
   result = done;
+  // The final pass may turn a beat shown as a hit into an outlier.
+  done.beats.forEach((beat) => renderMarker(beat.index, beat));
   pulse.removeAttribute('data-lit');
   pulse.dataset.phase = 'finished';
   pulseLabel.textContent = pulseText({ kind: 'finished' }, done.beats.length);
