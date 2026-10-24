@@ -1,4 +1,3 @@
-import { clickSchedule } from '../audio/calibration/schedule';
 import { loadCompensation, saveCompensation } from '../audio/calibration/storage';
 import type { BeatResult, CalibrationEvent, CalibrationHandle, CalibrationResult } from '../audio/calibration/types';
 import { DEFAULT_BEATS } from '../audio/calibration/types';
@@ -16,7 +15,7 @@ import {
   savedText,
   toCompensation,
 } from './present';
-import { simulateString, simulatedOnsets } from './simulate';
+import { parseLeak, simulateString, simulatedOnsets } from './simulate';
 
 const $ = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const testMode = $<HTMLParagraphElement>('#test-mode');
@@ -34,6 +33,7 @@ const redoButton = $<HTMLButtonElement>('#redo');
 const savedOut = $<HTMLParagraphElement>('#saved');
 
 const simulateMs = parseSimulateMs(location.search);
+const simulateLeak = simulateMs != null && parseLeak(location.search);
 const storage = (() => {
   try {
     return window.localStorage;
@@ -141,10 +141,17 @@ async function openSimulated(ms: number, a4: number): Promise<Session> {
     if (context.state !== 'running') {
       throw new DOMException(`audio context is ${context.state}`, 'InvalidStateError');
     }
-    const startAt = context.currentTime + 0.5;
-    const schedule = clickSchedule(startAt);
-    const string = simulateString(context, a4, simulatedOnsets(schedule.beats, ms));
-    const handle = await startCalibration(string.output, { a4, startAt, save: false, onEvent });
+    const string = simulateString(context, a4);
+    let handle: CalibrationHandle;
+    try {
+      // Onsets come from the engine's own schedule: loading the worklet may outlast any fixed startAt margin.
+      handle = await startCalibration(string.output, { a4, save: false, onEvent });
+    } catch (error) {
+      string.stop();
+      throw error;
+    }
+    string.bowAt(simulatedOnsets(handle.schedule.beats, ms));
+    if (simulateLeak) string.leakAt([...handle.schedule.countIn, ...handle.schedule.beats]);
     return {
       handle,
       async release() {
@@ -191,7 +198,7 @@ async function start(): Promise<void> {
     current = await (simulateMs != null ? openSimulated(simulateMs, a4) : openMicSession(a4));
   } catch (error) {
     console.error(error);
-    setStatus(describeMicError(error), true);
+    setStatus(simulateMs != null ? 'Não foi possível iniciar a simulação. Tente de novo.' : describeMicError(error), true);
     showIdle();
     startButton.disabled = false;
     return;
@@ -218,8 +225,8 @@ async function start(): Promise<void> {
   if (session !== current) return;
   session = null;
   cancelAnimationFrame(frame);
-  await current.release().catch((error) => console.error(error));
   showResult(done);
+  await current.release().catch((error) => console.error(error));
 }
 
 async function stop(message: string, isError = false): Promise<void> {
@@ -252,7 +259,9 @@ function save(): void {
 
 if (simulateMs != null) {
   testMode.hidden = false;
-  testMode.textContent = `Modo de teste: Lá sintético ${formatMs(simulateMs)} depois de cada clique, no lugar do microfone.`;
+  testMode.textContent = `Modo de teste: Lá sintético ${formatMs(simulateMs)} depois de cada clique, no lugar do microfone${
+    simulateLeak ? ', com o clique vazando na entrada' : ''
+  }.`;
 } else if (!window.isSecureContext) {
   setStatus(describeMicError(new DOMException('', 'SecurityError')), true);
 }
