@@ -38,6 +38,7 @@ export async function startPitch(
   let input: AudioNode;
   let ownedContext: AudioContext | undefined;
   let ownedInput: AudioNode | undefined;
+  let resumed: Promise<void> | undefined;
   if (isAudioNode(source)) {
     context = source.context;
     input = source;
@@ -47,7 +48,7 @@ export async function startPitch(
     } else {
       // Created and resumed before the first await so iOS Safari still counts it as inside the user gesture.
       ownedContext = new AudioContext({ latencyHint: 'interactive' });
-      void ownedContext.resume();
+      resumed = ownedContext.resume();
       context = ownedContext;
     }
     input = ownedInput = (context as AudioContext).createMediaStreamSource(source);
@@ -55,6 +56,12 @@ export async function startPitch(
 
   let node: AudioWorkletNode;
   try {
+    if (ownedContext) {
+      await resumed;
+      if (ownedContext.state !== 'running') {
+        throw new DOMException(`audio context is ${ownedContext.state}`, 'InvalidStateError');
+      }
+    }
     await loadProcessor(context);
     const processorOptions: ProcessorOptions = { a4, minClarity };
     node = new AudioWorkletNode(context, PROCESSOR_NAME, {

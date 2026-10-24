@@ -184,6 +184,24 @@ describe('startPitch', () => {
     expect(created[0].state).toBe('closed');
   });
 
+  it('rejects and closes its own context when the browser keeps it suspended', async () => {
+    const created: FakeAudioContext[] = [];
+    vi.stubGlobal(
+      'AudioContext',
+      class extends FakeAudioContext {
+        constructor(options?: AudioContextOptions) {
+          super(options);
+          withWorklet(this);
+          created.push(this);
+        }
+        override async resume(): Promise<void> {}
+      },
+    );
+    await expect(startPitch({} as MediaStream, () => {})).rejects.toMatchObject({ name: 'InvalidStateError' });
+    expect(created[0].state).toBe('closed');
+    expect(FakeWorkletNode.created).toHaveLength(0);
+  });
+
   it('retries loading the module after a failure', async () => {
     const context = new FakeAudioContext();
     const addModule = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined);
