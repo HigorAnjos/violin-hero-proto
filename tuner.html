@@ -49,6 +49,15 @@
         margin: 0;
         font-size: 1.5rem;
       }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
       #test-mode {
         margin: 0;
         padding: 8px 12px;
@@ -197,10 +206,11 @@
         <h1>Afinador</h1>
       </header>
       <p id="test-mode" hidden></p>
-      <div class="note" aria-live="polite">
+      <div class="note">
         <span id="solfege">—</span>
         <span id="detail">&nbsp;</span>
       </div>
+      <p id="announce" class="sr-only" aria-live="polite"></p>
       <div>
         <div class="gauge" role="meter" aria-label="Desvio em cents" aria-valuemin="-50" aria-valuemax="50" aria-valuenow="0">
           <div class="zone"></div>

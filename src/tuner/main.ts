@@ -1,6 +1,6 @@
 import { describeMicError, openMicrophone } from '../audio/microphone';
 import { startPitch, type PitchHandle, type PitchReading } from '../audio/pitch';
-import { STATE_COLORS, formatCents, formatHz, needleFraction, tuneHint, tuneState } from './present';
+import { centsView, formatHz } from './present';
 import { MAX_A4, MIN_A4, clampA4, loadA4, parseSignalHz, saveA4 } from './reference';
 import { createTestSignal } from './test-signal';
 
@@ -14,6 +14,7 @@ const gauge = $<HTMLDivElement>('.gauge');
 const needle = $<HTMLDivElement>('#needle');
 const centsOut = $<HTMLElement>('#cents');
 const hint = $<HTMLElement>('#hint');
+const announce = $<HTMLElement>('#announce');
 const a4Out = $<HTMLOutputElement>('#a4');
 const a4Down = $<HTMLButtonElement>('#a4-down');
 const a4Up = $<HTMLButtonElement>('#a4-up');
@@ -30,6 +31,7 @@ const storage = (() => {
 let a4 = loadA4(storage);
 let session: { handle: PitchHandle; release(): Promise<void> } | null = null;
 let latest: PitchReading | null = null;
+let announcedMidi: number | null = null;
 let dirty = false;
 let frame = 0;
 
@@ -59,19 +61,25 @@ function renderReading(reading: PitchReading | null): void {
     centsOut.textContent = '–';
     hint.textContent = '';
     gauge.setAttribute('aria-valuenow', '0');
+    announcedMidi = null;
     return;
   }
-  const color = STATE_COLORS[tuneState(reading.cents)];
+  const view = centsView(reading.cents);
   solfege.textContent = reading.solfege;
   detail.textContent = `${reading.name} · ${formatHz(reading.hz)}`;
   needle.hidden = false;
-  needle.style.left = `${needleFraction(reading.cents) * 100}%`;
-  needle.style.backgroundColor = color;
-  centsOut.textContent = formatCents(reading.cents);
-  centsOut.style.color = color;
-  hint.textContent = tuneHint(reading.cents);
-  hint.style.color = color;
-  gauge.setAttribute('aria-valuenow', Math.round(reading.cents).toString());
+  needle.style.left = `${view.fraction * 100}%`;
+  needle.style.backgroundColor = view.color;
+  centsOut.textContent = view.text;
+  centsOut.style.color = view.color;
+  hint.textContent = view.hint;
+  hint.style.color = view.color;
+  gauge.setAttribute('aria-valuenow', String(view.cents));
+  // Screen readers hear the note only when it changes, not on every frame.
+  if (reading.midi !== announcedMidi) {
+    announcedMidi = reading.midi;
+    announce.textContent = reading.solfege;
+  }
 }
 
 // Readings arrive every ~10 ms; paint at most once per frame.
@@ -91,6 +99,9 @@ async function openTestSignal(hz: number) {
   const resumed = context.resume();
   try {
     await resumed;
+    if (context.state !== 'running') {
+      throw new DOMException(`audio context is ${context.state}`, 'InvalidStateError');
+    }
     const oscillator = createTestSignal(context, hz);
     const handle = await startPitch(oscillator, onReading, { a4 });
     return {
