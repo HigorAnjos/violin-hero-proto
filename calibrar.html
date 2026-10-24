@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#1a1024" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <title>Violin Hero · Calibrar</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: system-ui, sans-serif;
+        --ink: #f2eaf7;
+        --muted: #b9a8c9;
+        --panel: #2e2140;
+        --accent: #e0a33a;
+        --hit: #4cc38a;
+        --miss: #e5484d;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        min-height: 100dvh;
+        background: #1a1024;
+        color: var(--ink);
+        display: grid;
+        place-items: center;
+      }
+      main {
+        width: min(100% - 32px, 420px);
+        padding: 16px 0 24px;
+        display: grid;
+        gap: 18px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      header a {
+        min-width: 52px;
+        min-height: 52px;
+        display: grid;
+        place-items: center;
+        border-radius: 12px;
+        color: var(--ink);
+        text-decoration: none;
+        font-size: 1.5rem;
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.5rem;
+      }
+      p {
+        margin: 0;
+      }
+      #test-mode {
+        padding: 8px 12px;
+        border-radius: 8px;
+        background: #3a2a10;
+        color: var(--accent);
+        font-size: 0.95rem;
+      }
+      #intro {
+        color: var(--muted);
+        line-height: 1.4;
+      }
+      #pulse {
+        justify-self: center;
+        width: min(44vw, 168px);
+        aspect-ratio: 1;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--panel);
+        border: 4px solid #45325e;
+        font-size: clamp(2rem, 11vw, 3rem);
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        transition: background-color 60ms, transform 60ms, border-color 60ms;
+      }
+      #pulse[data-phase='count-in'] {
+        border-color: var(--muted);
+      }
+      #pulse[data-phase='beat'] {
+        border-color: var(--hit);
+      }
+      #pulse[data-lit] {
+        background: var(--accent);
+        color: #1a1024;
+        transform: scale(1.08);
+        transition: none;
+      }
+      #pulse[data-phase='beat'][data-lit] {
+        background: var(--hit);
+      }
+      #markers {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+      }
+      #markers li {
+        min-height: 52px;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        background: var(--panel);
+        color: var(--muted);
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        transition: background-color 150ms;
+      }
+      #markers li[data-state='hit'] {
+        background: var(--hit);
+        color: #1a1024;
+      }
+      #markers li[data-state='outlier'] {
+        background: #3a2a10;
+        color: var(--accent);
+        text-decoration: line-through;
+      }
+      #markers li[data-state='missed'] {
+        background: #3a1418;
+        color: var(--miss);
+      }
+      #result {
+        padding: 14px 16px;
+        border-radius: 12px;
+        background: var(--panel);
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px 12px;
+      }
+      #result dt {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      #result dd {
+        margin: 0;
+        font-size: 1.8rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+      }
+      #result dl {
+        margin: 0;
+        display: contents;
+      }
+      #result-summary {
+        grid-column: 1 / -1;
+        color: var(--muted);
+      }
+      #result[hidden] {
+        display: none;
+      }
+      #status {
+        min-height: 1.5em;
+        color: var(--muted);
+      }
+      #status[data-error] {
+        color: #ff8a8f;
+      }
+      .actions {
+        display: grid;
+        gap: 12px;
+      }
+      button {
+        font: inherit;
+        font-size: 1.1rem;
+        min-height: 52px;
+        padding: 14px;
+        border: 0;
+        border-radius: 12px;
+        font-weight: 600;
+        touch-action: manipulation;
+        background: #45325e;
+        color: var(--ink);
+      }
+      button.primary {
+        background: var(--accent);
+        color: #1a1024;
+      }
+      button:disabled {
+        opacity: 0.45;
+      }
+      button[hidden] {
+        display: none;
+      }
+      #saved {
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <a id="home" href="./" aria-label="Voltar ao início">←</a>
+        <h1>Calibrar</h1>
+      </header>
+      <p id="test-mode" hidden></p>
+      <p id="intro">
+        Afine o Lá antes. Toque em Começar: vêm 4 cliques de contagem e depois 8. Toque a corda Lá solta junto com cada um dos 8.
+      </p>
+      <div id="pulse" aria-hidden="true"><span id="pulse-label">♪</span></div>
+      <ol id="markers" aria-label="Batidas medidas" aria-live="polite"></ol>
+      <section id="result" aria-live="polite" hidden>
+        <dl>
+          <dt>Atraso médio</dt>
+          <dt>Variação</dt>
+          <dd id="result-delay">—</dd>
+          <dd id="result-spread">—</dd>
+        </dl>
+        <p id="result-summary"></p>
+      </section>
+      <p id="status" role="status"></p>
+      <div class="actions">
+        <button id="start" class="primary" type="button">Começar</button>
+        <button id="save" class="primary" type="button" hidden>Salvar</button>
+        <button id="redo" type="button" hidden>Refazer</button>
+      </div>
+      <p id="saved"></p>
+    </main>
+    <script type="module" src="/src/calibrate/main.ts"></script>
+  </body>
+</html>
