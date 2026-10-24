@@ -47,12 +47,27 @@ describe('summarize / estimate', () => {
   it('returns the trimmed mean and its spread', () => {
     const delays = [100, 104, 96, 102, 98, 300, 101, 99];
     const result = estimate(clicks, at(...clicks.map((c, i) => c + delays[i] / 1000)), { maxDelayMs: 400 });
-    const kept = [98, 99, 100, 101, 102, 104];
+    const kept = [98, 99, 100, 101, 102];
     const mean = kept.reduce((s, d) => s + d, 0) / kept.length;
     expect(result.delayMs).toBeCloseTo(mean, 6);
-    expect(result.spreadMs).toBeCloseTo(Math.sqrt(kept.reduce((s, d) => s + (d - mean) ** 2, 0) / 5), 6);
-    expect(result.beatsUsed).toBe(8);
+    expect(result.spreadMs).toBeCloseTo(Math.sqrt(kept.reduce((s, d) => s + (d - mean) ** 2, 0) / 4), 6);
+    expect(result.beatsUsed).toBe(7);
+    expect(result.beats[5].status).toBe('outlier');
     expect(result.ok).toBe(true);
+  });
+
+  it('drops two late re-bows on the same side instead of letting them pull the mean', () => {
+    const delays = [78, 79, 80, 80, 81, 82, 200, 200];
+    const result = estimate(clicks, at(...clicks.map((c, i) => c + delays[i] / 1000)));
+    expect(result.beats.map((b) => b.status)).toEqual(['hit', 'hit', 'hit', 'hit', 'hit', 'hit', 'outlier', 'outlier']);
+    expect(result.beatsUsed).toBe(6);
+    expect(Math.abs(result.delayMs - 80)).toBeLessThan(1);
+  });
+
+  it('keeps ordinary ±15 ms jitter around a steady player', () => {
+    const delays = [100, 101, 100, 99, 100, 115, 85, 100];
+    const result = estimate(clicks, at(...clicks.map((c, i) => c + delays[i] / 1000)));
+    expect(result.beatsUsed).toBe(8);
   });
 
   it('is not ok with fewer than minBeats hits', () => {

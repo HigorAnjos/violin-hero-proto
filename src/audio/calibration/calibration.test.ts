@@ -59,6 +59,20 @@ describe('calibration on generated takes (F3 ready-when)', () => {
     expect(Math.abs(result.delayMs - truth)).toBeLessThanOrEqual(5);
   }, 30000);
 
+  it('drops two late re-bows on the same side', () => {
+    const beats = schedule.beats;
+    const { result, truth } = session({
+      delayMs: 80,
+      seed: 9,
+      missed: [COUNT_IN + 6, COUNT_IN + 7],
+      extra: [beats[6] + 0.2, beats[7] + 0.2],
+    });
+    expect(result.beats[6].status).toBe('outlier');
+    expect(result.beats[7].status).toBe('outlier');
+    expect(result.beatsUsed).toBe(6);
+    expect(Math.abs(result.delayMs - truth)).toBeLessThanOrEqual(5);
+  }, 30000);
+
   it('reports a session with too few beats as not ok instead of a number to trust', () => {
     const missed = [0, 1, 2, 3, 4].map((i) => COUNT_IN + i);
     const { result } = session({ delayMs: 60, seed: 3, missed });

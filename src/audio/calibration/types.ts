@@ -32,6 +32,7 @@ export interface CalibrationResult {
   /** Standard deviation of the trimmed beats, in ms. */
   spreadMs: number;
   beatsUsed: number;
+  /** Final statuses: a beat reported as 'hit' by its event may become 'outlier' once all beats are compared. */
   beats: BeatResult[];
   /** beatsUsed ≥ MIN_BEATS; only then the compensation is saved. */
   ok: boolean;
