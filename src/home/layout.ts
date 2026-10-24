@@ -18,7 +18,7 @@ export interface HomeLayout {
   title: { x: number; y: number; fontSize: number }
   strings: StringLine[]
   labelSize: number
-  button: Box & { fontSize: number }
+  buttons: (Box & { fontSize: number })[]
 }
 
 export const STRINGS = [
@@ -30,7 +30,9 @@ export const STRINGS = [
 
 const MAX_CONTENT_WIDTH = 480
 
-export function homeLayout(width: number, height: number): HomeLayout {
+const BUTTON_GAP = 12
+
+export function homeLayout(width: number, height: number, buttonCount = 1): HomeLayout {
   const contentWidth = Math.min(width - 32, MAX_CONTENT_WIDTH)
   const left = (width - contentWidth) / 2
   const unit = Math.min(contentWidth, height * 0.6)
@@ -40,7 +42,8 @@ export function homeLayout(width: number, height: number): HomeLayout {
 
   const buttonHeight = Math.max(52, Math.min(72, height * 0.09))
   const buttonWidth = Math.min(contentWidth, 320)
-  const buttonY = height - buttonHeight - Math.max(24, height * 0.08)
+  const buttonY =
+    height - Math.max(24, height * 0.08) - buttonCount * buttonHeight - (buttonCount - 1) * BUTTON_GAP
 
   const labelSize = Math.round(Math.max(14, Math.min(22, unit * 0.045)))
   const top = titleY + titleSize * 1.6
@@ -57,12 +60,12 @@ export function homeLayout(width: number, height: number): HomeLayout {
       thickness: 6 - i * 1.2,
     })),
     labelSize,
-    button: {
+    buttons: Array.from({ length: buttonCount }, (_, i) => ({
       x: (width - buttonWidth) / 2,
-      y: buttonY,
+      y: buttonY + i * (buttonHeight + BUTTON_GAP),
       width: buttonWidth,
       height: buttonHeight,
       fontSize: Math.round(buttonHeight * 0.34),
-    },
+    })),
   }
 }
