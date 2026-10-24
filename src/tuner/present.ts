@@ -41,3 +41,26 @@ export function formatCents(cents: number): string {
   if (rounded === 0) return '0';
   return rounded > 0 ? `+${rounded}` : `−${-rounded}`;
 }
+
+export interface CentsView {
+  cents: number;
+  text: string;
+  state: TuneState;
+  color: string;
+  hint: string;
+  fraction: number;
+}
+
+// Number, color and hint must agree with what the player reads, so everything derives from the rounded value.
+export function centsView(rawCents: number): CentsView {
+  const cents = Math.round(rawCents) || 0;
+  const state = tuneState(cents);
+  return {
+    cents,
+    text: formatCents(cents),
+    state,
+    color: STATE_COLORS[state],
+    hint: tuneHint(cents),
+    fraction: needleFraction(cents),
+  };
+}
