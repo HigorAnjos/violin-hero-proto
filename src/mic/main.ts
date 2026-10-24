@@ -49,6 +49,7 @@ async function start(): Promise<void> {
     render(analyser);
     setStatus(`Ouvindo${mic.label ? `: ${mic.label}` : ''} · ${mic.context.sampleRate} Hz`);
     toggle.textContent = 'Parar';
+    if (document.hidden) await stop('Microfone desligado ao sair da tela. Toque em Ativar para voltar.');
   } catch (error) {
     console.error(error);
     setStatus(describeMicError(error), true);
@@ -57,14 +58,20 @@ async function start(): Promise<void> {
   }
 }
 
-async function stop(): Promise<void> {
-  cancelAnimationFrame(frame);
-  await mic?.stop();
+async function stop(message = 'Microfone desligado.'): Promise<void> {
+  const current = mic;
+  if (!current) return;
   mic = null;
+  cancelAnimationFrame(frame);
   bar.style.width = '0';
   rmsOut.textContent = peakOut.textContent = '–';
   toggle.textContent = 'Ativar microfone';
-  setStatus('Microfone desligado.');
+  setStatus(message);
+  try {
+    await current.stop();
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 if (!window.isSecureContext) {
@@ -72,3 +79,9 @@ if (!window.isSecureContext) {
 }
 
 toggle.addEventListener('click', () => void (mic ? stop() : start()));
+
+const releaseInBackground = () => void stop('Microfone desligado ao sair da tela. Toque em Ativar para voltar.');
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) releaseInBackground();
+});
+window.addEventListener('pagehide', releaseInBackground);
