@@ -1,6 +1,8 @@
 export const DEFAULT_MIN_CLARITY = 0.9;
 export const MEDIAN_WINDOW = 5;
 export const HOP_SECONDS = 0.01;
+/** A held note changes at once beyond this distance; closer, only when the ~150 ms pitch centre crosses ±50. */
+export const SWITCH_NOW_CENTS = 80;
 
 export interface PitchReading {
   /** AudioContext time, in seconds, of the last sample of the analysed window. */
@@ -12,7 +14,7 @@ export interface PitchReading {
   name: string;
   /** pt-BR solfège, e.g. "Lá 4". */
   solfege: string;
-  /** Deviation from the nearest equal-tempered note at the current A4, in [-50, 50]. */
+  /** Deviation from `midi` at the current A4. Usually in [-50, 50]; up to ±80 while hysteresis holds the note. */
   cents: number;
   /** McLeod clarity of the raw detection, in [0, 1]. */
   clarity: number;

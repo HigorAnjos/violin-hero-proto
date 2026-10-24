@@ -34,6 +34,12 @@ describe('median', () => {
     expect(median([4, 1, 3, 2])).toBe(2.5);
   });
 
+  it('uses only the first length values and sorts into the scratch buffer', () => {
+    const scratch = new Float64Array(5);
+    expect(median(Float64Array.from([5, 1, 3, 9, 9]), 3, scratch)).toBe(3);
+    expect([...scratch.subarray(0, 3)]).toEqual([1, 3, 5]);
+  });
+
   it('rejects an empty list', () => {
     expect(() => median([])).toThrow(RangeError);
   });
@@ -96,6 +102,57 @@ describe('PitchTracker', () => {
     const readings = settled(track(signal));
     expect(readings.length).toBeGreaterThan(30);
     for (const r of readings) expect(r.midi).toBe(midi);
+  });
+
+  it.each(ALL_MIDI.flatMap((midi) => [[midi, 40] as const, [midi, -40] as const]))(
+    'holds midi %i through ±30 cents vibrato centred at %i cents',
+    (midi, offsetCents) => {
+      const signal = tone({
+        frequency: midiToFrequency(midi + offsetCents / 100),
+        durationSec: 1.5,
+        vibrato: { depthCents: 30, rateHz: 5 },
+      });
+      const all = track(signal);
+      expect(all).not.toContain(null);
+      const readings = all as PitchReading[];
+      const changes = readings.slice(1).filter((r, i) => r.midi !== readings[i].midi).length;
+      expect(changes).toBeLessThanOrEqual(1);
+      const late = readings.filter((r) => r.time >= 0.4);
+      expect(late.length).toBeGreaterThan(100);
+      for (const r of late) expect(r.midi).toBe(midi);
+      expect(Math.max(...late.map((r) => Math.abs(r.cents)))).toBeGreaterThan(55);
+    },
+  );
+
+  it('switches at once to an in-tune semitone and within ~150 ms to one played 25 cents flat', () => {
+    const inTune = track(
+      concat(tone({ frequency: midiToFrequency(62), durationSec: 0.3 }), tone({ frequency: midiToFrequency(63), durationSec: 0.3 })),
+    ).filter((e): e is PitchReading => e !== null);
+    const firstInTune = inTune.find((r) => r.midi === 63)!;
+    expect(firstInTune.time - 0.3).toBeLessThan(0.06);
+
+    const flat = track(
+      concat(
+        tone({ frequency: midiToFrequency(62), durationSec: 0.3 }),
+        tone({ frequency: midiToFrequency(62.75), durationSec: 0.5 }),
+      ),
+    ).filter((e): e is PitchReading => e !== null);
+    const firstFlat = flat.find((r) => r.midi === 63)!;
+    expect(firstFlat.time - 0.3).toBeLessThan(0.2);
+    for (const r of flat.filter((r) => r.time > firstFlat.time)) expect(r.midi).toBe(63);
+  });
+
+  it('starts fresh on the nearest note after silence', () => {
+    const events = track(
+      concat(
+        tone({ frequency: midiToFrequency(62.4), durationSec: 0.3 }),
+        silence(0.1),
+        tone({ frequency: midiToFrequency(62.6), durationSec: 0.3 }),
+      ),
+    );
+    const afterGap = events.filter((e): e is PitchReading => e !== null && e.time > 0.4);
+    expect(afterGap.length).toBeGreaterThan(10);
+    for (const r of afterGap) expect(r.midi).toBe(63);
   });
 
   it('works at 44.1 kHz', () => {
