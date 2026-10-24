@@ -20,17 +20,31 @@ export async function openMicrophone(): Promise<Microphone> {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new DOMException('getUserMedia unavailable', 'NotSupportedError');
   }
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: RAW_AUDIO, video: false });
+  // iOS Safari only unlocks audio for a context created and resumed inside the user gesture, i.e. before the first await.
   const context = new AudioContext({ latencyHint: 'interactive' });
-  await context.resume();
-  const source = context.createMediaStreamSource(stream);
+  const resumed = context.resume();
+  let stream: MediaStream | undefined;
+  let source: MediaStreamAudioSourceNode;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: RAW_AUDIO, video: false });
+    await resumed;
+    if (context.state !== 'running') {
+      throw new DOMException(`audio context is ${context.state}`, 'InvalidStateError');
+    }
+    source = context.createMediaStreamSource(stream);
+  } catch (error) {
+    stream?.getTracks().forEach((t) => t.stop());
+    await context.close().catch(() => undefined);
+    throw error;
+  }
+  const live = stream;
   return {
     context,
-    stream,
+    stream: live,
     source,
-    label: stream.getAudioTracks()[0]?.label ?? '',
+    label: live.getAudioTracks()[0]?.label ?? '',
     async stop() {
-      stream.getTracks().forEach((t) => t.stop());
+      live.getTracks().forEach((t) => t.stop());
       source.disconnect();
       await context.close();
     },
@@ -50,6 +64,8 @@ export function describeMicError(error: unknown): string {
     case 'NotReadableError':
     case 'AbortError':
       return 'O microfone está em uso por outro app. Feche-o e tente de novo.';
+    case 'InvalidStateError':
+      return 'O navegador não liberou o áudio. Toque em Ativar de novo.';
     case 'NotSupportedError':
       return 'Este navegador não dá acesso ao microfone.';
     default:

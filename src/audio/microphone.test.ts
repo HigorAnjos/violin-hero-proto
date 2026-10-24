@@ -9,6 +9,7 @@ describe('describeMicError', () => {
     ['OverconstrainedError', 'Nenhum microfone'],
     ['NotReadableError', 'em uso'],
     ['AbortError', 'em uso'],
+    ['InvalidStateError', 'Toque em Ativar de novo'],
     ['NotSupportedError', 'navegador'],
   ])('explains %s', (name, expected) => {
     expect(describeMicError(new DOMException('x', name))).toContain(expected);
