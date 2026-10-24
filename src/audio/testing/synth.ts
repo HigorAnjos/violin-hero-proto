@@ -102,7 +102,7 @@ function addInPlace(target: Float32Array, source: Float32Array): void {
   for (let i = 0; i < target.length; i++) target[i] += source[i];
 }
 
-function mulberry32(seed: number): () => number {
+export function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
