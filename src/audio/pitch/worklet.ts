@@ -11,6 +11,11 @@ declare function registerProcessor(name: string, processor: new (options: AudioW
 class PitchProcessor extends AudioWorkletProcessor {
   private readonly tracker: PitchTracker;
   private readonly stream: SlidingWindow;
+  private blockStart = 0;
+  private readonly onWindow = (window: Float32Array, end: number): void => {
+    const event: FromProcessor | undefined = this.tracker.analyse(window, this.blockStart + end / sampleRate);
+    if (event !== undefined) this.port.postMessage(event);
+  };
 
   constructor(options: AudioWorkletNodeOptions) {
     super();
@@ -25,11 +30,8 @@ class PitchProcessor extends AudioWorkletProcessor {
   process(inputs: Float32Array[][]): boolean {
     const channel = inputs[0]?.[0];
     if (!channel) return true;
-    const blockStart = currentTime;
-    this.stream.push(channel, (window, end) => {
-      const event: FromProcessor | undefined = this.tracker.analyse(window, blockStart + end / sampleRate);
-      if (event !== undefined) this.port.postMessage(event);
-    });
+    this.blockStart = currentTime;
+    this.stream.push(channel, this.onWindow);
     return true;
   }
 }
