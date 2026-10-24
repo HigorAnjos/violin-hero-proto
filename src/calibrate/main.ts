@@ -1,9 +1,15 @@
-import { loadCompensation, saveCompensation } from '../audio/calibration/storage';
-import type { BeatResult, CalibrationEvent, CalibrationHandle, CalibrationResult } from '../audio/calibration/types';
-import { DEFAULT_BEATS } from '../audio/calibration/types';
+import {
+  DEFAULT_BEATS,
+  loadCompensation,
+  saveCompensation,
+  startCalibration,
+  type BeatResult,
+  type CalibrationEvent,
+  type CalibrationHandle,
+  type CalibrationResult,
+} from '../audio/calibration';
 import { describeMicError, openMicrophone } from '../audio/microphone';
 import { loadA4 } from '../tuner/reference';
-import { startCalibration } from './fake-engine';
 import {
   formatMs,
   markerView,

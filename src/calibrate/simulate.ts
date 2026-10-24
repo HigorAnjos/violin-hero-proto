@@ -1,3 +1,4 @@
+import { CLICK_PEAK_SECONDS, createClickBuffer } from '../audio/calibration/click';
 import { harmonicWave } from '../tuner/test-signal';
 
 export interface EnvelopeOptions {
@@ -30,8 +31,6 @@ export function simulatedOnsets(beats: readonly number[], delayMs: number): numb
   return beats.map((t) => t + delayMs / 1000);
 }
 
-export const LEAK_CLICK = { hz: 1500, peak: 0.5, decay: 0.03 } as const;
-
 export function parseLeak(search: string): boolean {
   const raw = new URLSearchParams(search).get('vazamento');
   return raw === '1' || raw === 'sim';
@@ -42,7 +41,7 @@ export interface SimulatedString {
   output: AudioNode;
   /** Bows the A at each onset; call after the click schedule is known. */
   bowAt(onsets: readonly number[]): void;
-  /** Mixes a click into the output at each time, as if the speaker leaked into the microphone. */
+  /** Mixes the engine's own click, peaking at each time, into the output, as if the speaker leaked into the mic. */
   leakAt(times: readonly number[]): void;
   stop(): void;
 }
@@ -58,7 +57,7 @@ export function simulateString(context: BaseAudioContext, hz: number): Simulated
   const output = context.createGain();
   oscillator.connect(envelope).connect(output);
   oscillator.start();
-  const clicks: OscillatorNode[] = [];
+  const clicks: AudioBufferSourceNode[] = [];
   return {
     output,
     bowAt(onsets) {
@@ -70,15 +69,12 @@ export function simulateString(context: BaseAudioContext, hz: number): Simulated
       }
     },
     leakAt(times) {
+      const buffer = createClickBuffer(context);
       for (const at of times) {
-        const click = context.createOscillator();
-        const gain = context.createGain();
-        click.frequency.value = LEAK_CLICK.hz;
-        gain.gain.setValueAtTime(LEAK_CLICK.peak, at);
-        gain.gain.exponentialRampToValueAtTime(0.001, at + LEAK_CLICK.decay);
-        click.connect(gain).connect(output);
-        click.start(at);
-        click.stop(at + LEAK_CLICK.decay + 0.01);
+        const click = context.createBufferSource();
+        click.buffer = buffer;
+        click.connect(output);
+        click.start(Math.max(0, at - CLICK_PEAK_SECONDS));
         clicks.push(click);
       }
     },

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { LEAK_CLICK, NOTE_ENVELOPE, noteEnvelope, parseLeak, simulateString, simulatedOnsets } from './simulate';
+import { CLICK_PEAK_SECONDS } from '../audio/calibration/click';
+import { NOTE_ENVELOPE, noteEnvelope, parseLeak, simulateString, simulatedOnsets } from './simulate';
 
 describe('noteEnvelope', () => {
   it('starts silent, rises, holds and releases to silence', () => {
@@ -52,7 +53,17 @@ function fakeContext() {
   const gains: ReturnType<typeof makeGain>[] = [];
   const makeOsc = () => node({ setPeriodicWave: vi.fn(), frequency: { value: 0 }, start: vi.fn(), stop: vi.fn() });
   const makeGain = () => node({ gain: param() });
+  const sources: { buffer: AudioBuffer | null; start: ReturnType<typeof vi.fn>; connect: ReturnType<typeof vi.fn> }[] =
+    [];
   const context = {
+    sampleRate: 48000,
+    createBuffer: (channels: number, length: number, sampleRate: number) =>
+      new AudioBuffer({ numberOfChannels: channels, length, sampleRate }),
+    createBufferSource: () => {
+      const s = node({ buffer: null as AudioBuffer | null, start: vi.fn() });
+      sources.push(s);
+      return s;
+    },
     createOscillator: () => {
       const o = makeOsc();
       oscillators.push(o);
@@ -65,7 +76,7 @@ function fakeContext() {
       return g;
     },
   } as unknown as BaseAudioContext;
-  return { context, oscillators, gains };
+  return { context, oscillators, gains, sources };
 }
 
 describe('simulateString', () => {
@@ -95,18 +106,16 @@ describe('simulateString', () => {
     expect(output.disconnect).toHaveBeenCalled();
   });
 
-  it('leaks a short click into the output at each time', () => {
-    const { context, oscillators, gains } = fakeContext();
+  it("leaks the engine's click into the output, peaking at each time", () => {
+    const { context, gains, sources } = fakeContext();
     const sim = simulateString(context, 442);
     sim.leakAt([3, 4]);
 
-    const clicks = oscillators.slice(1);
-    expect(clicks).toHaveLength(2);
-    expect(clicks[0].frequency.value).toBe(LEAK_CLICK.hz);
-    expect(clicks[0].start).toHaveBeenCalledWith(3);
-    expect(clicks[1].start).toHaveBeenCalledWith(4);
-    const clickGain = gains[2];
-    expect(clickGain.gain.setValueAtTime).toHaveBeenCalledWith(LEAK_CLICK.peak, 3);
-    expect(clickGain.connect).toHaveBeenCalledWith(gains[1]);
+    expect(sources).toHaveLength(2);
+    expect(sources[0].buffer).toBe(sources[1].buffer);
+    expect(sources[0].buffer?.length).toBe(Math.round(2 * CLICK_PEAK_SECONDS * 48000));
+    expect(sources[0].start).toHaveBeenCalledWith(3 - CLICK_PEAK_SECONDS);
+    expect(sources[1].start).toHaveBeenCalledWith(4 - CLICK_PEAK_SECONDS);
+    expect(sources[0].connect).toHaveBeenCalledWith(gains[1]);
   });
 });
