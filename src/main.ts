@@ -14,9 +14,14 @@ await app.init({
 })
 host.appendChild(app.canvas)
 
-const home = new HomeScene(() => {
-  window.location.href = `${import.meta.env.BASE_URL}mic.html`
-})
+const go = (page: string) => () => {
+  window.location.href = `${import.meta.env.BASE_URL}${page}`
+}
+
+const home = new HomeScene([
+  { label: 'Afinador', onTap: go('tuner.html'), primary: true },
+  { label: 'Microfone', onTap: go('mic.html') },
+])
 app.stage.addChild(home)
 
 const relayout = () => home.layout(app.screen.width, app.screen.height)
