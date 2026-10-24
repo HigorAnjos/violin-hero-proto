@@ -1,11 +1,8 @@
 import { describeMicError, openMicrophone } from '../audio/microphone';
-import type { PitchHandle, PitchReading, StartPitch } from '../audio/pitch/types';
-import { startFakePitch } from './fake-pitch';
+import { startPitch, type PitchHandle, type PitchReading } from '../audio/pitch';
 import { STATE_COLORS, formatCents, formatHz, needleFraction, tuneHint, tuneState } from './present';
 import { MAX_A4, MIN_A4, clampA4, loadA4, parseSignalHz, saveA4 } from './reference';
 import { createTestSignal } from './test-signal';
-
-const startPitch: StartPitch = startFakePitch;
 
 const $ = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const status = $<HTMLParagraphElement>('#status');
