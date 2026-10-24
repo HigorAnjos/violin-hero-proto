@@ -10,6 +10,7 @@ export default defineConfig(({ command, isPreview }) => ({
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         mic: fileURLToPath(new URL('./mic.html', import.meta.url)),
+        tuner: fileURLToPath(new URL('./tuner.html', import.meta.url)),
       },
     },
   },

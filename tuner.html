@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#1a1024" />
+    <title>Violin Hero · Afinador</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: system-ui, sans-serif;
+        --ink: #f2eaf7;
+        --muted: #b9a8c9;
+        --panel: #2e2140;
+        --accent: #e0a33a;
+        --needle: #b9a8c9;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        min-height: 100dvh;
+        background: #1a1024;
+        color: var(--ink);
+        display: grid;
+        place-items: center;
+      }
+      main {
+        width: min(100% - 32px, 420px);
+        padding: 16px 0 24px;
+        display: grid;
+        gap: 20px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      header a {
+        min-width: 52px;
+        min-height: 52px;
+        display: grid;
+        place-items: center;
+        border-radius: 12px;
+        color: var(--ink);
+        text-decoration: none;
+        font-size: 1.5rem;
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.5rem;
+      }
+      #test-mode {
+        margin: 0;
+        padding: 8px 12px;
+        border-radius: 8px;
+        background: #3a2a10;
+        color: var(--accent);
+        font-size: 0.95rem;
+      }
+      .note {
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+      }
+      #solfege {
+        display: block;
+        font-size: clamp(3.5rem, 18vw, 5rem);
+        font-weight: 800;
+        line-height: 1.1;
+      }
+      #detail {
+        color: var(--muted);
+        font-size: 1.1rem;
+      }
+      .gauge {
+        position: relative;
+        height: 64px;
+        border-radius: 12px;
+        background: var(--panel);
+      }
+      .gauge .zone {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 45%;
+        width: 10%;
+        background: #4cc38a33;
+      }
+      .gauge .tick {
+        position: absolute;
+        bottom: 0;
+        width: 2px;
+        height: 14px;
+        background: #ffffff40;
+        transform: translateX(-1px);
+      }
+      .gauge .tick.center {
+        height: 100%;
+        background: #4cc38a80;
+      }
+      #needle {
+        position: absolute;
+        top: 6px;
+        bottom: 6px;
+        left: 50%;
+        width: 6px;
+        border-radius: 3px;
+        background: var(--needle);
+        transform: translateX(-3px);
+        transition: left 80ms linear, background-color 120ms;
+      }
+      #needle[hidden] {
+        display: block;
+        visibility: hidden;
+      }
+      .scale {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 0.8rem;
+        font-variant-numeric: tabular-nums;
+      }
+      .cents {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        font-variant-numeric: tabular-nums;
+      }
+      #cents {
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+      #hint {
+        font-size: 1.1rem;
+        font-weight: 600;
+      }
+      #status {
+        margin: 0;
+        min-height: 1.5em;
+        color: var(--muted);
+      }
+      #status[data-error] {
+        color: #ff8a8f;
+      }
+      button {
+        font: inherit;
+        min-height: 52px;
+        border: 0;
+        border-radius: 12px;
+        font-weight: 600;
+        touch-action: manipulation;
+      }
+      #toggle {
+        font-size: 1.1rem;
+        padding: 14px;
+        background: var(--accent);
+        color: #1a1024;
+      }
+      fieldset {
+        margin: 0;
+        padding: 12px;
+        border: 0;
+        border-radius: 12px;
+        background: var(--panel);
+        display: grid;
+        grid-template-columns: 52px 1fr 52px;
+        align-items: center;
+        gap: 12px;
+      }
+      legend {
+        float: left;
+        grid-column: 1 / -1;
+        padding: 0;
+        color: var(--muted);
+      }
+      fieldset button {
+        min-width: 52px;
+        font-size: 1.5rem;
+        background: #45325e;
+        color: var(--ink);
+      }
+      fieldset button:disabled {
+        opacity: 0.4;
+      }
+      #a4 {
+        text-align: center;
+        font-size: 1.4rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <a id="home" href="./" aria-label="Voltar ao início">←</a>
+        <h1>Afinador</h1>
+      </header>
+      <p id="test-mode" hidden></p>
+      <div class="note" aria-live="polite">
+        <span id="solfege">—</span>
+        <span id="detail">&nbsp;</span>
+      </div>
+      <div>
+        <div class="gauge" role="meter" aria-label="Desvio em cents" aria-valuemin="-50" aria-valuemax="50" aria-valuenow="0">
+          <div class="zone"></div>
+          <div class="tick" style="left: 0%"></div>
+          <div class="tick" style="left: 25%"></div>
+          <div class="tick center" style="left: 50%"></div>
+          <div class="tick" style="left: 75%"></div>
+          <div class="tick" style="left: 100%"></div>
+          <div id="needle" hidden></div>
+        </div>
+        <div class="scale"><span>−50</span><span>−25</span><span>0</span><span>+25</span><span>+50</span></div>
+      </div>
+      <div class="cents">
+        <span><strong id="cents">–</strong> cents</span>
+        <span id="hint"></span>
+      </div>
+      <p id="status">Toque em Ligar e permita o acesso ao microfone.</p>
+      <button id="toggle" type="button">Ligar afinador</button>
+      <fieldset>
+        <legend>Lá de referência</legend>
+        <button id="a4-down" type="button" aria-label="Diminuir Lá de referência">−</button>
+        <output id="a4" for="a4-down a4-up">442 Hz</output>
+        <button id="a4-up" type="button" aria-label="Aumentar Lá de referência">+</button>
+      </fieldset>
+    </main>
+    <script type="module" src="/src/tuner/main.ts"></script>
+  </body>
+</html>
