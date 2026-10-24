@@ -1,8 +1,8 @@
 export const DEFAULT_BPM = 60;
 export const DEFAULT_BEATS = 8;
 export const DEFAULT_COUNT_IN = 4;
-/** A beat whose attack lands farther than this from its click is discarded. */
-export const MAX_DELAY_MS = 250;
+/** A beat whose attack lands farther than this from its click is discarded; 250 ms of latency plus human jitter fits. */
+export const MAX_DELAY_MS = 300;
 /** Fewer kept beats than this and the session is not trusted (result.ok = false, nothing saved). */
 export const MIN_BEATS = 5;
 export const LATENCY_STORAGE_KEY = 'violin-hero:latency-ms';
