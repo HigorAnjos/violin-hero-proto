@@ -214,7 +214,7 @@ async function start(): Promise<void> {
   session = current;
   startButton.textContent = 'Cancelar';
   startButton.disabled = false;
-  setStatus('Ouça a contagem e toque o Lá solto junto com cada um dos 8 cliques.');
+  setStatus('Ouça a contagem. Depois, uma arcada curta no Lá solto em cada clique, parando o arco entre eles.');
   if (document.hidden) {
     await stop('Calibração cancelada ao sair da tela.');
     return;
