@@ -20,6 +20,7 @@ const go = (page: string) => () => {
 
 const home = new HomeScene([
   { label: 'Afinador', onTap: go('tuner.html'), primary: true },
+  { label: 'Calibrar', onTap: go('calibrar.html') },
   { label: 'Microfone', onTap: go('mic.html') },
 ])
 app.stage.addChild(home)
