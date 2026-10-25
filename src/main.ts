@@ -19,7 +19,8 @@ const go = (page: string) => () => {
 }
 
 const home = new HomeScene([
-  { label: 'Afinador', onTap: go('tuner.html'), primary: true },
+  { label: 'Jogar', onTap: go('jogo.html'), primary: true },
+  { label: 'Afinador', onTap: go('tuner.html') },
   { label: 'Calibrar', onTap: go('calibrar.html') },
   { label: 'Microfone', onTap: go('mic.html') },
 ])
