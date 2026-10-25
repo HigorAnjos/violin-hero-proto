@@ -18,6 +18,8 @@ export interface PitchReading {
   cents: number;
   /** McLeod clarity of the raw detection, in [0, 1]. */
   clarity: number;
+  /** RMS of the last hop (~10 ms) in dBFS: follows bow changes far faster than the 40 ms pitch window. */
+  level: number;
 }
 
 /** Called every hop (~10 ms) with a reading, or with null once when the signal stops being clear. */

@@ -44,7 +44,7 @@ function withWorklet<T extends object>(context: T, addModule = vi.fn(async (_url
   return addModule;
 }
 
-const reading: PitchReading = { time: 1, hz: 442, midi: 69, name: 'A4', solfege: 'Lá 4', cents: 0, clarity: 0.99 };
+const reading: PitchReading = { time: 1, hz: 442, midi: 69, name: 'A4', solfege: 'Lá 4', cents: 0, clarity: 0.99, level: -12 };
 
 let startPitch: typeof import('./index').startPitch;
 

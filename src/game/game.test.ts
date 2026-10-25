@@ -36,7 +36,7 @@ function play(midi: number, at: number) {
   const n = noteFromMidi(midi, 442);
   for (let i = 0; i < 10; i++) {
     const time = at + DETECTION_LAG_SECONDS + i * 0.01;
-    pitch.listener?.({ time, hz: n.frequency, midi, name: n.name, solfege: n.solfege, cents: 0, clarity: 0.97 });
+    pitch.listener?.({ time, hz: n.frequency, midi, name: n.name, solfege: n.solfege, cents: 0, clarity: 0.97, level: -12 });
   }
   pitch.listener?.(null);
 }

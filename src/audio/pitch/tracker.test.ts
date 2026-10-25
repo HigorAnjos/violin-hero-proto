@@ -177,6 +177,18 @@ describe('PitchTracker', () => {
     expect(events.slice(firstNull)).toEqual([null]);
   });
 
+  it('reports the level of the last hop, following a short dip the 40 ms window would blur', () => {
+    const hz = midiToFrequency(66);
+    const loud = tone({ frequency: hz, durationSec: 0.5, peak: 0.5 });
+    for (let i = Math.round(0.3 * SAMPLE_RATE); i < Math.round(0.33 * SAMPLE_RATE); i++) loud[i] *= 10 ** (-9 / 20);
+    const readings = track(loud).filter((e): e is PitchReading => e !== null);
+    const steady = readings.find((r) => r.time > 0.2 && r.time < 0.25)!;
+    const dip = readings.find((r) => r.time > 0.32 && r.time <= 0.33)!;
+    expect(steady.level).toBeLessThan(20 * Math.log10(0.5));
+    expect(steady.level).toBeGreaterThan(20 * Math.log10(0.5) - 12);
+    expect(Math.abs(steady.level - dip.level - 9)).toBeLessThan(1.5);
+  });
+
   it('follows a note change within the median window', () => {
     const a = midiToFrequency(62);
     const b = midiToFrequency(66);
