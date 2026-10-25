@@ -17,6 +17,9 @@ const tone = vi.hoisted(() => {
   class FakeNode {
     disposed = false;
     connectedTo: unknown;
+    constructor(public options: { context?: unknown } & Record<string, unknown>) {
+      created.push(this);
+    }
     connect(destination: unknown) {
       this.connectedTo = destination;
       return this;
@@ -26,36 +29,40 @@ const tone = vi.hoisted(() => {
     }
   }
   const created: FakeNode[] = [];
+  const contexts: { options: { context: { onstatechange: unknown }; clockSource: string }; disposed: boolean }[] = [];
+  class Context {
+    disposed = false;
+    constructor(public options: { context: { onstatechange: unknown }; clockSource: string }) {
+      options.context.onstatechange = 'tone handler';
+      contexts.push(this);
+    }
+    dispose() {
+      this.disposed = true;
+    }
+  }
   class Gain extends FakeNode {
     gain: FakeParam;
-    constructor(value: number) {
-      super();
-      this.gain = new FakeParam(value);
-      created.push(this);
+    constructor(options: { gain: number }) {
+      super(options);
+      this.gain = new FakeParam(options.gain);
     }
   }
   class Synth extends FakeNode {
     triggers: [number, number, number][] = [];
-    constructor(public options: unknown) {
-      super();
-      created.push(this);
-    }
     triggerAttackRelease(frequency: number, duration: number, time: number) {
       this.triggers.push([frequency, duration, time]);
     }
   }
-  class PolySynth extends Synth {
-    constructor(
-      public voice: unknown,
-      options: unknown,
-    ) {
-      super(options);
-    }
-  }
-  return { created, Gain, Synth, PolySynth, setContext: vi.fn() };
+  return { created, contexts, Context, Gain, Synth, setContext: vi.fn() };
 });
 
-vi.mock('tone', () => tone);
+vi.mock('tone/build/esm/core/context/Context.js', () => ({ Context: tone.Context }));
+vi.mock('tone/build/esm/core/Global.js', () => ({ setContext: tone.setContext }));
+vi.mock('tone/build/esm/core/context/Gain.js', () => ({ Gain: tone.Gain }));
+vi.mock('tone/build/esm/instrument/Synth.js', () => ({ Synth: tone.Synth }));
+vi.mock('tone', () => {
+  throw new Error('the tone entry point builds a global Transport and a second AudioContext');
+});
 
 type FakeGain = InstanceType<typeof tone.Gain>;
 type FakeSynth = InstanceType<typeof tone.Synth>;
@@ -64,26 +71,36 @@ const A4 = 442;
 const BEAT = 60 / 90;
 
 function context(currentTime = 0) {
-  return { currentTime, destination: { name: 'destination' } } as unknown as BaseAudioContext;
+  const handler = () => undefined;
+  return { currentTime, destination: { name: 'destination' }, onstatechange: handler } as unknown as AudioContext;
 }
 
-async function start(options: { startAt?: number; volume?: number; guide?: boolean; now?: number } = {}) {
+async function start(
+  options: { startAt?: number; volume?: number; guide?: boolean; now?: number; output?: 'speaker' | 'headphones' } = {},
+) {
   const ctx = context(options.now);
   const handle = await startBacking(ctx, C_MAJOR_SCALE, { startAt: 10, a4: A4, ...options });
   const [mute, master, guideGain] = tone.created.filter((n) => n instanceof tone.Gain) as FakeGain[];
-  const [bass, pad, guide] = tone.created.filter((n) => n instanceof tone.Synth) as FakeSynth[];
-  return { ctx, handle, mute, master, guideGain, bass, pad, guide };
+  const synths = tone.created.filter((n) => n instanceof tone.Synth) as FakeSynth[];
+  const [bass, pad0, pad1, pad2, guide] = synths;
+  return { ctx, handle, mute, master, guideGain, bass, pad: [pad0, pad1, pad2], guide, synths };
 }
 
 beforeEach(() => {
   tone.created.length = 0;
+  tone.contexts.length = 0;
   tone.setContext.mockClear();
 });
 
 describe('startBacking', () => {
-  it("runs Tone on the game's own AudioContext", async () => {
+  it("wraps the game's own AudioContext with the offline clock, for every node, and keeps its statechange handler", async () => {
+    const before = context().onstatechange;
     const { ctx, mute } = await start();
-    expect(tone.setContext).toHaveBeenCalledWith(ctx);
+    expect(tone.contexts).toHaveLength(1);
+    expect(tone.contexts[0].options).toMatchObject({ context: ctx, clockSource: 'offline' });
+    expect(tone.created.every((n) => n.options.context === tone.contexts[0])).toBe(true);
+    expect(tone.setContext).toHaveBeenCalledWith(tone.contexts[0]);
+    expect(typeof ctx.onstatechange).toBe(typeof before);
     expect(mute.connectedTo).toBe(ctx.destination);
   });
 
@@ -93,17 +110,37 @@ describe('startBacking', () => {
     expect(bass.triggers).toEqual(
       arrangement.bass.map((n) => [midiToFrequency(n.midi, A4), n.beats * BEAT, 10 + n.beat * BEAT]),
     );
-    expect(pad.triggers).toHaveLength(arrangement.pad.length);
-    expect(pad.triggers[3]).toEqual([midiToFrequency(arrangement.pad[3].midi, A4), 2 * BEAT, 10 + 2 * BEAT]);
+    pad.forEach((voice, k) => {
+      const tones = arrangement.pad.filter((_, i) => i % 3 === k);
+      expect(voice.triggers).toEqual(tones.map((n) => [midiToFrequency(n.midi, A4), n.beats * BEAT, 10 + n.beat * BEAT]));
+    });
     expect(guide.triggers.map(([, , time]) => time)).toEqual(C_MAJOR_SCALE.notes.map((n) => 10 + n.beat * BEAT));
+  });
+
+  it('pad voices each hold one chord tone: root, third and fifth', async () => {
+    const { pad } = await start();
+    const chords = arrange(C_MAJOR_SCALE).chords;
+    pad.forEach((voice, k) => {
+      voice.triggers.forEach(([frequency], i) => {
+        const pc = Math.round(12 * Math.log2(frequency / A4) + 69) % 12;
+        expect(pc).toBe(chords[i].pitchClasses[k]);
+      });
+    });
+  });
+
+  it('plays the headphones register when asked', async () => {
+    const { pad, bass } = await start({ output: 'headphones' });
+    const arrangement = arrange(C_MAJOR_SCALE, 'headphones');
+    expect(pad[0].triggers[0][0]).toBeCloseTo(midiToFrequency(arrangement.pad[0].midi, A4));
+    expect(bass.triggers[0][0]).toBeCloseTo(midiToFrequency(36, A4));
   });
 
   it('uses pure sines at the voice levels the leak tests rendered', async () => {
     const { bass, pad, guide } = await start();
     expect(bass.options).toMatchObject({ oscillator: { type: 'sine' }, volume: VOICES.bass.gainDb });
-    expect(pad.options).toMatchObject({ oscillator: { type: 'sine' }, volume: VOICES.pad.gainDb });
+    for (const voice of pad) expect(voice.options).toMatchObject({ oscillator: { type: 'sine' }, volume: VOICES.pad.gainDb });
     expect(guide.options).toMatchObject({ envelope: { attack: VOICES.guide.attack, release: VOICES.guide.release } });
-    expect((pad as InstanceType<typeof tone.PolySynth>).voice).toBe(tone.Synth);
+    expect(guide.connectedTo).toBeInstanceOf(tone.Gain);
   });
 
   it('starts with the guide muted and the default volume', async () => {
@@ -138,10 +175,11 @@ describe('startBacking', () => {
     expect(guideGain.gain.ramps).toEqual([[1, 0.05]]);
   });
 
-  it('stop disposes every node once and ignores later calls', async () => {
+  it("stop disposes every node once, never the Tone Context (it would close the game's AudioContext)", async () => {
     const { handle, master } = await start();
     await handle.stop();
     expect(tone.created.every((n) => n.disposed)).toBe(true);
+    expect(tone.contexts[0].disposed).toBe(false);
     await expect(handle.stop()).resolves.toBeUndefined();
     handle.setVolume(0.9);
     expect(master.gain.ramps).toEqual([]);
