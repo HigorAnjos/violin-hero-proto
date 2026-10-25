@@ -2,11 +2,10 @@ import { Application } from 'pixi.js'
 import { describeMicError, openMicrophone } from '../audio/microphone'
 import { loadA4 } from '../tuner/reference'
 import { AudioClock, fallbackStamp, isUsableStamp } from './clock'
-import { ODE_TO_JOY as song, parseSimulate, simulatePlayer, startGame } from './fake'
 import { FpsMeter, parseFpsFlag } from './fps'
+import { ODE_TO_JOY as song, parseSimulate, simulatePlayer, startGame, type GameEvent, type GameHandle, type GameResult } from './index'
 import { formatScore, isSongOver, JUDGMENT_LABEL, JUDGMENTS } from './present'
 import { GameScene } from './scene'
-import type { GameEvent, GameHandle, GameResult } from './types'
 
 const $ = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector)!
 const host = $<HTMLDivElement>('#app')
@@ -63,7 +62,7 @@ let paused = false
 
 function syncClock(context: AudioContext, perfNow: number): void {
   const stamp = typeof context.getOutputTimestamp === 'function' ? context.getOutputTimestamp() : undefined
-  clock.sync(isUsableStamp(stamp) ? stamp : fallbackStamp(context.currentTime, context.outputLatency, context.baseLatency, perfNow))
+  clock.sync(isUsableStamp(stamp, perfNow) ? stamp : fallbackStamp(context.currentTime, context.outputLatency, context.baseLatency, perfNow))
   lastSync = perfNow
 }
 
@@ -91,6 +90,15 @@ app.ticker.add((ticker) => {
   if (result && isSongOver(now - start, lastNoteTime - start)) showEnd(result)
 })
 
+let generation = 0
+
+/** Listener bound to one session: a session being released must not paint over the next one. */
+function listenerFor(id: number): (event: GameEvent) => void {
+  return (event) => {
+    if (id === generation) onEvent(event)
+  }
+}
+
 function onEvent(event: GameEvent): void {
   if (event.type === 'judgment') {
     scene.judge(event.index, event.judgment, clockNow())
@@ -100,7 +108,7 @@ function onEvent(event: GameEvent): void {
   }
 }
 
-async function openSimulated(offsetMs: number, errors: number, a4: number): Promise<Session> {
+async function openSimulated(offsetMs: number, errors: number, a4: number, onEvent: (e: GameEvent) => void): Promise<Session> {
   // iOS Safari only unlocks audio for a context created and resumed inside the user gesture, i.e. before the first await.
   const context = new AudioContext({ latencyHint: 'interactive' })
   const resumed = context.resume()
@@ -130,7 +138,7 @@ async function openSimulated(offsetMs: number, errors: number, a4: number): Prom
   }
 }
 
-async function openMicSession(a4: number): Promise<Session> {
+async function openMicSession(a4: number, onEvent: (e: GameEvent) => void): Promise<Session> {
   const mic = await openMicrophone()
   try {
     const handle = await startGame(mic.stream, song, { context: mic.context, a4, onEvent })
@@ -149,20 +157,38 @@ async function openMicSession(a4: number): Promise<Session> {
 }
 
 async function play(): Promise<void> {
+  const id = ++generation
+  const listener = listenerFor(id)
+  const a4 = loadA4(storage)
+  // The new AudioContext must be created synchronously inside the tap (iOS), so open first and release the old one without waiting.
+  const opening = simulate ? openSimulated(simulate.offsetMs, simulate.errors, a4, listener) : openMicSession(a4, listener)
+  const old = session
+  session = null
+  if (old) void old.release()
+
   playButton.disabled = true
   startError.textContent = ''
-  await stopSession()
   result = null
+  paused = false
+  pausedOverlay.hidden = true
+  endOverlay.hidden = true
+  app.ticker.start()
   scene.setScore(0, 0)
-  const a4 = loadA4(storage)
+  let opened: Session
   try {
-    session = simulate ? await openSimulated(simulate.offsetMs, simulate.errors, a4) : await openMicSession(a4)
+    opened = await opening
   } catch (error) {
+    if (id !== generation) return
     startError.textContent = simulate ? `Não deu para iniciar o modo simulado (${String(error)}).` : describeMicError(error)
     startOverlay.hidden = false
     playButton.disabled = false
     return
   }
+  if (id !== generation) {
+    void opened.release()
+    return
+  }
+  session = opened
   const notes = session.handle.notes
   lastNoteTime = notes.length ? notes[notes.length - 1].time : session.handle.startAt
   scene.setNotes(notes)
@@ -229,10 +255,7 @@ fpsOut.hidden = !showFps
 playButton.addEventListener('click', () => void play())
 $('#again').addEventListener('click', () => void play())
 $('#resume').addEventListener('click', () => void resume())
-$('#restart').addEventListener('click', () => {
-  app.ticker.start()
-  void play()
-})
+$('#restart').addEventListener('click', () => void play())
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) void pause()
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AudioClock, fallbackStamp, isUsableStamp } from './clock'
+import { AudioClock, fallbackStamp, isUsableStamp, MAX_STAMP_AGE_MS } from './clock'
 
 describe('AudioClock', () => {
   it('extrapolates the output clock from the last stamp', () => {
@@ -42,8 +42,14 @@ describe('fallbackStamp', () => {
 
 describe('isUsableStamp', () => {
   it('rejects the zero stamp reported before audio flows', () => {
-    expect(isUsableStamp({ contextTime: 0, performanceTime: 0 })).toBe(false)
-    expect(isUsableStamp(undefined)).toBe(false)
-    expect(isUsableStamp({ contextTime: 0.2, performanceTime: 123 })).toBe(true)
+    expect(isUsableStamp({ contextTime: 0, performanceTime: 0 }, 100)).toBe(false)
+    expect(isUsableStamp(undefined, 100)).toBe(false)
+    expect(isUsableStamp({ contextTime: 0.2, performanceTime: 123 }, 140)).toBe(true)
+  })
+
+  it('rejects a stamp older than MAX_STAMP_AGE_MS, e.g. one left from before a pause', () => {
+    expect(isUsableStamp({ contextTime: 5, performanceTime: 1000 }, 1000 + MAX_STAMP_AGE_MS)).toBe(true)
+    expect(isUsableStamp({ contextTime: 5, performanceTime: 1000 }, 1000 + MAX_STAMP_AGE_MS + 1)).toBe(false)
+    expect(isUsableStamp({ contextTime: 5, performanceTime: 1000 }, 31000)).toBe(false)
   })
 })

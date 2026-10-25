@@ -49,7 +49,14 @@ export function fallbackStamp(
   }
 }
 
-/** getOutputTimestamp reports zeros until audio actually flows. */
-export function isUsableStamp(stamp: Partial<OutputStamp> | undefined): stamp is OutputStamp {
-  return !!stamp && typeof stamp.contextTime === 'number' && typeof stamp.performanceTime === 'number' && stamp.performanceTime > 0
+export const MAX_STAMP_AGE_MS = 250
+
+/**
+ * getOutputTimestamp reports zeros until audio flows, and may hand back a stamp from before a
+ * suspend; extrapolating that one would jump the clock ahead by the pause and freeze the track.
+ */
+export function isUsableStamp(stamp: Partial<OutputStamp> | undefined, performanceNow: number): stamp is OutputStamp {
+  if (!stamp || typeof stamp.contextTime !== 'number' || typeof stamp.performanceTime !== 'number') return false
+  if (stamp.performanceTime <= 0) return false
+  return Math.abs(performanceNow - stamp.performanceTime) <= MAX_STAMP_AGE_MS
 }
