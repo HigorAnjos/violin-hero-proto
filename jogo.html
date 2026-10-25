@@ -41,12 +41,16 @@
         place-items: center;
         background: rgb(26 16 36 / 0.88);
         padding: 16px;
+        overflow-y: auto;
+        touch-action: pan-y;
       }
       .overlay[hidden] {
         display: none;
       }
       .panel {
         width: min(100%, 380px);
+        /* margin auto, unlike place-items, keeps the top reachable when the panel is taller than a small screen */
+        margin: auto;
         display: grid;
         gap: 16px;
         text-align: center;
@@ -140,6 +144,67 @@
         font-weight: 800;
         font-variant-numeric: tabular-nums;
       }
+      .backing {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
+        border-radius: 14px;
+        background: var(--panel);
+      }
+      .backing button {
+        min-width: 112px;
+        font-size: 1rem;
+      }
+      .backing button[aria-pressed='true'] {
+        background: var(--accent);
+        color: #1a1024;
+      }
+      .backing-row {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .backing input[type='range'] {
+        width: 100%;
+        min-height: 52px;
+        margin: 0;
+        accent-color: var(--accent);
+        touch-action: pan-x;
+      }
+      .backing input:disabled,
+      .backing output.off {
+        opacity: 0.4;
+      }
+      .backing output {
+        min-width: 3.5ch;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      #stars {
+        font-size: 2.2rem;
+        letter-spacing: 0.1em;
+        color: var(--accent);
+      }
+      #share-status {
+        min-height: 1.4em;
+      }
+      #share-fallback {
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 9em;
+        font: 0.9rem ui-monospace, monospace;
+        background: var(--panel);
+        color: var(--ink);
+        border: 1px solid var(--muted);
+        border-radius: 10px;
+        padding: 8px;
+      }
+      #share-fallback[hidden] {
+        display: none;
+      }
       #fps {
         position: fixed;
         left: 8px;
@@ -162,10 +227,12 @@
 
     <section id="start" class="overlay" aria-labelledby="start-title">
       <div class="panel">
-        <h1 id="start-title">Escala de Dó maior</h1>
+        <h1 id="start-title"></h1>
         <p class="muted" id="start-info">Toque as notas quando elas chegarem na linha.</p>
         <p class="test-mode" id="test-mode" hidden></p>
         <p class="warning" id="calibrate-warning" hidden></p>
+        <div class="backing" data-backing></div>
+        <p class="warning" data-headphones hidden></p>
         <div class="actions">
           <a class="button primary" id="calibrate" href="./calibrar.html" hidden>Calibrar</a>
           <button id="play" class="primary" type="button">Começar</button>
@@ -178,6 +245,8 @@
     <section id="paused" class="overlay" aria-labelledby="paused-title" hidden>
       <div class="panel">
         <h2 id="paused-title">Pausado</h2>
+        <div class="backing" data-backing></div>
+        <p class="warning" data-headphones hidden></p>
         <div class="actions">
           <button id="resume" class="primary" type="button">Continuar</button>
           <button id="restart" type="button">Recomeçar</button>
@@ -189,11 +258,15 @@
     <section id="end" class="overlay" aria-labelledby="end-title" hidden>
       <div class="panel">
         <h2 id="end-title">Fim da música</h2>
+        <p id="stars" role="img"></p>
         <p id="final-score">0</p>
         <p class="muted" id="final-combo"></p>
         <dl id="counts"></dl>
         <div class="actions">
-          <button id="again" class="primary" type="button">Jogar de novo</button>
+          <button id="share" class="primary" type="button">Copiar resultado</button>
+          <p class="muted" id="share-status" role="status"></p>
+          <textarea id="share-fallback" readonly hidden aria-label="Resultado para copiar"></textarea>
+          <button id="again" type="button">Jogar de novo</button>
           <a class="button" href="./">Início</a>
         </div>
       </div>
