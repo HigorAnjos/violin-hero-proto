@@ -13,7 +13,7 @@ import {
 } from './backing-settings'
 import { AudioClock, fallbackStamp, isUsableStamp } from './clock'
 import { FpsMeter, parseFpsFlag } from './fps'
-import { C_MAJOR_SCALE as song, parseSimulate, simulatePlayer, startGame, type GameEvent, type GameHandle, type GameResult } from './index'
+import { G_MAJOR_SCALE as song, parseSimulate, simulatePlayer, startGame, type GameEvent, type GameHandle, type GameResult } from './index'
 import { formatScore, isSongOver, JUDGMENT_LABEL, JUDGMENTS, startView } from './present'
 import { formatPercent, MAX_STARS, resultView, shareText, starText } from './result'
 import { GameScene } from './scene'

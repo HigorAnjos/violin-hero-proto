@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PitchTracker } from '../pitch/tracker';
 import { createJudge } from '../../game/judge';
 import { LEAD_SECONDS, renderPerformance } from '../../game/simulate';
-import { C_MAJOR_SCALE, scheduleSong } from '../../game/song';
+import { G_MAJOR_SCALE, scheduleSong } from '../../game/song';
 import type { GameResult, Song } from '../../game/types';
 import { renderBacking } from './render';
 
@@ -78,7 +78,7 @@ function take(
 const hits = (result: GameResult) => result.counts.perfect + result.counts.great + result.counts.good;
 
 describe('accompaniment leaking into the microphone', { timeout: 60_000 }, () => {
-  const song = C_MAJOR_SCALE;
+  const song = G_MAJOR_SCALE;
 
   it.each([0, -6, -12])('alone at %s dB: not a single note is scored', (leakDb) => {
     const result = judgeSignal(take(song, leakDb, { violin: false }), song);

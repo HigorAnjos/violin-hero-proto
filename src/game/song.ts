@@ -1,5 +1,5 @@
 import { DEFAULT_A4, HIGHEST_MIDI, LOWEST_MIDI, midiToFrequency } from '../audio/notes';
-import cMajorScaleJson from './songs/c-major-scale.json';
+import gMajorScaleJson from './songs/g-major-scale.json';
 import { OPEN_STRING_MIDI, type Song, type SongNote, type StringIndex, type TimedNote } from './types';
 
 /** First position reaches a perfect fifth above each open string with the 4th finger. */
@@ -88,5 +88,5 @@ export function scheduleSong(song: Song, startAt: number, a4: number = DEFAULT_A
   }));
 }
 
-/** C major scale C4–C5–C4 in first position, quarter notes at 90 BPM ending on a half note. */
-export const C_MAJOR_SCALE: Song = parseSong(cMajorScaleJson);
+/** G major scale over two octaves, G3–G5–G3, in first position: quarter notes at 90 BPM ending on a half note. */
+export const G_MAJOR_SCALE: Song = parseSong(gMajorScaleJson);

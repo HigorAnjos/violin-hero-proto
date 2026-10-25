@@ -1,0 +1,45 @@
+{
+  "id": "g-major-scale",
+  "title": "Escala de Sol maior",
+  "composer": "",
+  "key": "G major",
+  "bpm": 90,
+  "beatsPerBar": 4,
+  "notes": [
+    { "beat": 0, "beats": 1, "midi": 55, "string": 0 },
+    { "beat": 1, "beats": 1, "midi": 57, "string": 0 },
+    { "beat": 2, "beats": 1, "midi": 59, "string": 0 },
+    { "beat": 3, "beats": 1, "midi": 60, "string": 0 },
+
+    { "beat": 4, "beats": 1, "midi": 62, "string": 1 },
+    { "beat": 5, "beats": 1, "midi": 64, "string": 1 },
+    { "beat": 6, "beats": 1, "midi": 66, "string": 1 },
+    { "beat": 7, "beats": 1, "midi": 67, "string": 1 },
+
+    { "beat": 8, "beats": 1, "midi": 69, "string": 2 },
+    { "beat": 9, "beats": 1, "midi": 71, "string": 2 },
+    { "beat": 10, "beats": 1, "midi": 72, "string": 2 },
+    { "beat": 11, "beats": 1, "midi": 74, "string": 2 },
+
+    { "beat": 12, "beats": 1, "midi": 76, "string": 3 },
+    { "beat": 13, "beats": 1, "midi": 78, "string": 3 },
+    { "beat": 14, "beats": 1, "midi": 79, "string": 3 },
+    { "beat": 15, "beats": 1, "midi": 78, "string": 3 },
+
+    { "beat": 16, "beats": 1, "midi": 76, "string": 3 },
+    { "beat": 17, "beats": 1, "midi": 74, "string": 2 },
+    { "beat": 18, "beats": 1, "midi": 72, "string": 2 },
+    { "beat": 19, "beats": 1, "midi": 71, "string": 2 },
+
+    { "beat": 20, "beats": 1, "midi": 69, "string": 2 },
+    { "beat": 21, "beats": 1, "midi": 67, "string": 1 },
+    { "beat": 22, "beats": 1, "midi": 66, "string": 1 },
+    { "beat": 23, "beats": 1, "midi": 64, "string": 1 },
+
+    { "beat": 24, "beats": 1, "midi": 62, "string": 1 },
+    { "beat": 25, "beats": 1, "midi": 60, "string": 0 },
+    { "beat": 26, "beats": 1, "midi": 59, "string": 0 },
+    { "beat": 27, "beats": 1, "midi": 57, "string": 0 },
+    { "beat": 28, "beats": 2, "midi": 55, "string": 0 }
+  ]
+}

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { midiToFrequency } from '../notes';
-import { C_MAJOR_SCALE } from '../../game/song';
+import { G_MAJOR_SCALE } from '../../game/song';
 import { arrange } from './arrange';
 import { DEFAULT_BACKING_VOLUME, KEEP_AUDIBLE_LEVEL, startBacking } from './index';
 import { VOICES } from './voices';
@@ -125,7 +125,7 @@ async function start(
   } = {},
 ) {
   const ctx = context(options.now, options.state);
-  const handle = await startBacking(ctx, C_MAJOR_SCALE, { startAt: 10, a4: A4, ...options });
+  const handle = await startBacking(ctx, G_MAJOR_SCALE, { startAt: 10, a4: A4, ...options });
   const [mute, master, guideGain] = tone.created.filter((n) => n instanceof tone.Gain) as FakeGain[];
   const synths = tone.created.filter((n) => n instanceof tone.Synth) as FakeSynth[];
   const [bass, pad0, pad1, pad2, guide] = synths;
@@ -155,7 +155,7 @@ describe('startBacking', () => {
 
   it('schedules bass, chords and guide on the song clock from startAt', async () => {
     const { bass, pad, guide } = await start();
-    const arrangement = arrange(C_MAJOR_SCALE);
+    const arrangement = arrange(G_MAJOR_SCALE);
     expect(bass.triggers).toEqual(
       arrangement.bass.map((n) => [midiToFrequency(n.midi, A4), n.beats * BEAT, 10 + n.beat * BEAT]),
     );
@@ -163,12 +163,12 @@ describe('startBacking', () => {
       const tones = arrangement.pad.filter((_, i) => i % 3 === k);
       expect(voice.triggers).toEqual(tones.map((n) => [midiToFrequency(n.midi, A4), n.beats * BEAT, 10 + n.beat * BEAT]));
     });
-    expect(guide.triggers.map(([, , time]) => time)).toEqual(C_MAJOR_SCALE.notes.map((n) => 10 + n.beat * BEAT));
+    expect(guide.triggers.map(([, , time]) => time)).toEqual(G_MAJOR_SCALE.notes.map((n) => 10 + n.beat * BEAT));
   });
 
   it('pad voices each hold one chord tone: root, third and fifth', async () => {
     const { pad } = await start();
-    const chords = arrange(C_MAJOR_SCALE).chords;
+    const chords = arrange(G_MAJOR_SCALE).chords;
     pad.forEach((voice, k) => {
       voice.triggers.forEach(([frequency], i) => {
         const pc = Math.round(12 * Math.log2(frequency / A4) + 69) % 12;
@@ -179,9 +179,9 @@ describe('startBacking', () => {
 
   it('plays the headphones register when asked', async () => {
     const { pad, bass } = await start({ output: 'headphones' });
-    const arrangement = arrange(C_MAJOR_SCALE, 'headphones');
+    const arrangement = arrange(G_MAJOR_SCALE, 'headphones');
     expect(pad[0].triggers[0][0]).toBeCloseTo(midiToFrequency(arrangement.pad[0].midi, A4));
-    expect(bass.triggers[0][0]).toBeCloseTo(midiToFrequency(36, A4));
+    expect(bass.triggers[0][0]).toBeCloseTo(midiToFrequency(43, A4));
   });
 
   it('uses pure sines at the voice levels the leak tests rendered', async () => {
@@ -207,7 +207,7 @@ describe('startBacking', () => {
   it('skips notes already over and starts a note in progress now', async () => {
     const { bass } = await start({ now: 10 + 3 * BEAT });
     expect(bass.triggers[0][2]).toBeCloseTo(10 + 3 * BEAT);
-    expect(bass.triggers).toHaveLength(arrange(C_MAJOR_SCALE).bass.length - 1);
+    expect(bass.triggers).toHaveLength(arrange(G_MAJOR_SCALE).bass.length - 1);
   });
 
   it('ramps volume (clamped to 0..1), enable and guide', async () => {

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { LOWEST_MIDI } from '../notes';
-import { C_MAJOR_SCALE } from '../../game/song';
+import { LOWEST_MIDI, midiToFrequency } from '../notes';
+import { G_MAJOR_SCALE } from '../../game/song';
 import type { Song } from '../../game/types';
 import { REGISTERS, arrange, parseMajorKey, placeAbove, triad } from './arrange';
 
 const C = 0;
-const F = 5;
+const D = 2;
 const G = 7;
 
 describe('parseMajorKey', () => {
@@ -38,20 +38,22 @@ describe('triad and placeAbove', () => {
   });
 });
 
-describe('arrange the C major scale', () => {
-  const song = C_MAJOR_SCALE;
+describe('arrange the G major scale', () => {
+  const song = G_MAJOR_SCALE;
   const arrangement = arrange(song);
 
-  it('is in C major with one chord per half bar covering the 16 beats', () => {
-    expect(arrangement.tonic).toBe(C);
-    expect(arrangement.chords).toHaveLength(8);
+  it('is in G major with one chord per half bar covering the 30 beats', () => {
+    expect(arrangement.tonic).toBe(G);
+    expect(arrangement.chords).toHaveLength(15);
     arrangement.chords.forEach((chord, i) => expect(chord).toMatchObject({ beat: i * 2, beats: 2 }));
   });
 
-  it('uses only I, IV and V (C, F, G) and ends on I', () => {
-    for (const chord of arrangement.chords) expect([C, F, G]).toContain(chord.pitchClasses[0]);
+  it('uses only I, IV and V (G, C, D) and ends on I', () => {
+    for (const chord of arrangement.chords) expect([G, C, D]).toContain(chord.pitchClasses[0]);
     expect(arrangement.chords.at(-1)?.degree).toBe('I');
-    expect(arrangement.chords.map((c) => c.degree)).toEqual(['I', 'I', 'I', 'V', 'V', 'I', 'I', 'I']);
+    expect(arrangement.chords.map((c) => c.degree)).toEqual(
+      ['I', 'I', 'I', 'V', 'V', 'IV', 'IV', 'I', 'IV', 'IV', 'V', 'V', 'I', 'I', 'I'],
+    );
   });
 
   it('every melody note on a chord downbeat is a chord tone', () => {
@@ -78,9 +80,11 @@ describe('arrange the C major scale', () => {
     }
   });
 
-  it('keeps bass and chords far below the violin: under E♭3, a fourth under G3', () => {
+  it('keeps bass and chords far below the violin: under E♭3, a fourth under G3, and under the 170 Hz high-pass', () => {
+    expect(song.notes.some((n) => n.midi === LOWEST_MIDI)).toBe(true);
     for (const note of [...arrangement.bass, ...arrangement.pad]) {
       expect(note.midi).toBeLessThanOrEqual(LOWEST_MIDI - 4);
+      expect(midiToFrequency(note.midi, 442)).toBeLessThan(160);
     }
     for (const note of arrangement.bass) expect(note.midi).toBeGreaterThanOrEqual(REGISTERS.speaker.bass);
     for (const note of arrangement.pad) expect(note.midi).toBeGreaterThanOrEqual(REGISTERS.speaker.chords);
@@ -101,7 +105,7 @@ describe('arrange the C major scale', () => {
     expect(headphones.pad.map((n) => [n.beat, n.beats, n.midi % 12])).toEqual(
       arrangement.pad.map((n) => [n.beat, n.beats, n.midi % 12]),
     );
-    expect(headphones.bass.map((n) => n.midi)).toEqual([36, 36, 36, 43, 43, 36, 36, 36]);
+    expect(headphones.bass.map((n) => n.midi)).toEqual([43, 43, 43, 38, 38, 36, 36, 43, 36, 36, 38, 38, 43, 43, 43]);
   });
 
   it('guide is the melody itself', () => {
@@ -112,7 +116,7 @@ describe('arrange the C major scale', () => {
 describe('arrange other songs', () => {
   it('harmonises in the song key: D major gives D, G and A chords', () => {
     const song: Song = {
-      ...C_MAJOR_SCALE,
+      ...G_MAJOR_SCALE,
       key: 'D major',
       notes: [
         { beat: 0, beats: 2, midi: 66, string: 1 },
@@ -127,7 +131,7 @@ describe('arrange other songs', () => {
 
   it('uses whole-bar chords in 3/4 and cuts the last one at the end of the song', () => {
     const song: Song = {
-      ...C_MAJOR_SCALE,
+      ...G_MAJOR_SCALE,
       beatsPerBar: 3,
       notes: [
         { beat: 0, beats: 3, midi: 67, string: 1 },
