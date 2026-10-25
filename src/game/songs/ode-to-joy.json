@@ -1,0 +1,87 @@
+{
+  "id": "ode-to-joy",
+  "title": "Ode à Alegria",
+  "composer": "Ludwig van Beethoven",
+  "key": "D major",
+  "bpm": 90,
+  "beatsPerBar": 4,
+  "notes": [
+    { "beat": 0, "beats": 1, "midi": 66, "string": 1 },
+    { "beat": 1, "beats": 1, "midi": 66, "string": 1 },
+    { "beat": 2, "beats": 1, "midi": 67, "string": 1 },
+    { "beat": 3, "beats": 1, "midi": 69, "string": 2 },
+
+    { "beat": 4, "beats": 1, "midi": 69, "string": 2 },
+    { "beat": 5, "beats": 1, "midi": 67, "string": 1 },
+    { "beat": 6, "beats": 1, "midi": 66, "string": 1 },
+    { "beat": 7, "beats": 1, "midi": 64, "string": 1 },
+
+    { "beat": 8, "beats": 1, "midi": 62, "string": 1 },
+    { "beat": 9, "beats": 1, "midi": 62, "string": 1 },
+    { "beat": 10, "beats": 1, "midi": 64, "string": 1 },
+    { "beat": 11, "beats": 1, "midi": 66, "string": 1 },
+
+    { "beat": 12, "beats": 1.5, "midi": 66, "string": 1 },
+    { "beat": 13.5, "beats": 0.5, "midi": 64, "string": 1 },
+    { "beat": 14, "beats": 2, "midi": 64, "string": 1 },
+
+    { "beat": 16, "beats": 1, "midi": 66, "string": 1 },
+    { "beat": 17, "beats": 1, "midi": 66, "string": 1 },
+    { "beat": 18, "beats": 1, "midi": 67, "string": 1 },
+    { "beat": 19, "beats": 1, "midi": 69, "string": 2 },
+
+    { "beat": 20, "beats": 1, "midi": 69, "string": 2 },
+    { "beat": 21, "beats": 1, "midi": 67, "string": 1 },
+    { "beat": 22, "beats": 1, "midi": 66, "string": 1 },
+    { "beat": 23, "beats": 1, "midi": 64, "string": 1 },
+
+    { "beat": 24, "beats": 1, "midi": 62, "string": 1 },
+    { "beat": 25, "beats": 1, "midi": 62, "string": 1 },
+    { "beat": 26, "beats": 1, "midi": 64, "string": 1 },
+    { "beat": 27, "beats": 1, "midi": 66, "string": 1 },
+
+    { "beat": 28, "beats": 1.5, "midi": 64, "string": 1 },
+    { "beat": 29.5, "beats": 0.5, "midi": 62, "string": 1 },
+    { "beat": 30, "beats": 2, "midi": 62, "string": 1 },
+
+    { "beat": 32, "beats": 1, "midi": 64, "string": 1 },
+    { "beat": 33, "beats": 1, "midi": 64, "string": 1 },
+    { "beat": 34, "beats": 1, "midi": 66, "string": 1 },
+    { "beat": 35, "beats": 1, "midi": 62, "string": 1 },
+
+    { "beat": 36, "beats": 1, "midi": 64, "string": 1 },
+    { "beat": 37, "beats": 0.5, "midi": 66, "string": 1 },
+    { "beat": 37.5, "beats": 0.5, "midi": 67, "string": 1 },
+    { "beat": 38, "beats": 1, "midi": 66, "string": 1 },
+    { "beat": 39, "beats": 1, "midi": 62, "string": 1 },
+
+    { "beat": 40, "beats": 1, "midi": 64, "string": 1 },
+    { "beat": 41, "beats": 0.5, "midi": 66, "string": 1 },
+    { "beat": 41.5, "beats": 0.5, "midi": 67, "string": 1 },
+    { "beat": 42, "beats": 1, "midi": 66, "string": 1 },
+    { "beat": 43, "beats": 1, "midi": 64, "string": 1 },
+
+    { "beat": 44, "beats": 1, "midi": 62, "string": 1 },
+    { "beat": 45, "beats": 1, "midi": 64, "string": 1 },
+    { "beat": 46, "beats": 2, "midi": 57, "string": 0 },
+
+    { "beat": 48, "beats": 1, "midi": 66, "string": 1 },
+    { "beat": 49, "beats": 1, "midi": 66, "string": 1 },
+    { "beat": 50, "beats": 1, "midi": 67, "string": 1 },
+    { "beat": 51, "beats": 1, "midi": 69, "string": 2 },
+
+    { "beat": 52, "beats": 1, "midi": 69, "string": 2 },
+    { "beat": 53, "beats": 1, "midi": 67, "string": 1 },
+    { "beat": 54, "beats": 1, "midi": 66, "string": 1 },
+    { "beat": 55, "beats": 1, "midi": 64, "string": 1 },
+
+    { "beat": 56, "beats": 1, "midi": 62, "string": 1 },
+    { "beat": 57, "beats": 1, "midi": 62, "string": 1 },
+    { "beat": 58, "beats": 1, "midi": 64, "string": 1 },
+    { "beat": 59, "beats": 1, "midi": 66, "string": 1 },
+
+    { "beat": 60, "beats": 1.5, "midi": 64, "string": 1 },
+    { "beat": 61.5, "beats": 0.5, "midi": 62, "string": 1 },
+    { "beat": 62, "beats": 2, "midi": 62, "string": 1 }
+  ]
+}
