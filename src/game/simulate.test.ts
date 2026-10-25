@@ -3,17 +3,21 @@ import { PitchTracker, SlidingWindow } from '../audio/pitch/tracker';
 import { createJudge } from './judge';
 import { ODE_TO_JOY, scheduleSong } from './song';
 import { LEAD_SECONDS, parseSimulate, pickWrongNotes, renderPerformance, simulatePlayer, type PerformanceOptions } from './simulate';
-import type { GameEvent, GameResult } from './types';
+import type { GameEvent, GameResult, Song } from './types';
 
 const A4 = 442;
 const BLOCK = 128;
 
 /** Plays a rendered take through the real pitch tracker into the judge, as the worklet would, block by block. */
-function playGame(options: PerformanceOptions): { result: GameResult; events: GameEvent[]; wrong: number[] } {
-  const take = renderPerformance(ODE_TO_JOY, { a4: A4, ...options });
+function playGame(
+  options: PerformanceOptions,
+  played: Song = ODE_TO_JOY,
+  judged: Song = played,
+): { result: GameResult; events: GameEvent[]; wrong: number[] } {
+  const take = renderPerformance(played, { a4: A4, ...options });
   const { signal, sampleRate } = take;
   const events: GameEvent[] = [];
-  const judge = createJudge(scheduleSong(ODE_TO_JOY, LEAD_SECONDS, A4), { onEvent: (e) => events.push(e) });
+  const judge = createJudge(scheduleSong(judged, LEAD_SECONDS, A4), { onEvent: (e) => events.push(e) });
   const tracker = new PitchTracker({ sampleRate, a4: A4 });
   const stream = new SlidingWindow(tracker.windowSize, tracker.hopSize);
   for (let start = 0; start < signal.length && !judge.done; start += BLOCK) {
@@ -61,9 +65,61 @@ describe('whole game with the simulated player', { timeout: 30_000 }, () => {
     expect(result.maxCombo).toBeLessThan(ODE_TO_JOY.notes.length);
   });
 
-  it('160 ms late: every note Bom', () => {
-    const { result } = playGame({ offsetMs: 160 });
+  it.each([180, -180])('%s ms off: every note Bom, a short note and its repetition included', (offsetMs) => {
+    const { result } = playGame({ offsetMs });
     expect(result.counts.good).toBe(ODE_TO_JOY.notes.length);
+  });
+
+  it('bow changes are level dips only: no silence anywhere in the take', () => {
+    const { signal, sampleRate } = renderPerformance(ODE_TO_JOY, { a4: A4 });
+    const notes = scheduleSong(ODE_TO_JOY, LEAD_SECONDS, A4);
+    const from = Math.round(notes[0].time * sampleRate) + 2000;
+    const to = Math.round((notes.at(-1)!.time + 0.5) * sampleRate);
+    const hop = 480;
+    let quietest = Infinity;
+    for (let i = from; i + hop < to; i += hop) {
+      let sum = 0;
+      for (let k = i; k < i + hop; k++) sum += signal[k] * signal[k];
+      quietest = Math.min(quietest, 10 * Math.log10(sum / hop));
+    }
+    expect(quietest).toBeGreaterThan(-40);
+  });
+});
+
+const TWO_F_SHARPS: Song = {
+  ...ODE_TO_JOY,
+  id: 'two-f-sharps',
+  notes: [
+    { beat: 0, beats: 1, midi: 66, string: 1 },
+    { beat: 1, beats: 1, midi: 66, string: 1 },
+  ],
+};
+const ONE_LONG_F_SHARP: Song = { ...TWO_F_SHARPS, notes: [{ beat: 0, beats: 2, midi: 66, string: 1 }] };
+
+describe('repeated note re-bowed without silence', { timeout: 30_000 }, () => {
+  it.each([
+    [6, 0.04, 0],
+    [9, 0.04, 0],
+    [12, 0.04, 0],
+    [15, 0.03, 0],
+    [20, 0.04, 0],
+    [30, 0.04, 0],
+    [15, 0.03, 0.05],
+    [20, 0.04, 0.1],
+    [80, 0.02, 0],
+    [80, 0.04, 0],
+  ])('dip of %s dB for %s s (noise %s): both notes hit', (depthDb, seconds, noise) => {
+    const { result } = playGame({ bowChange: { depthDb, seconds }, noise }, TWO_F_SHARPS);
+    expect(result.judgments.map((j) => j.judgment)).toEqual(['perfect', 'perfect']);
+  });
+
+  it.each([
+    [{ depthCents: 30, rateHz: 5 }, undefined],
+    [{ depthCents: 20, rateHz: 5.5 }, { depthDb: 3, rateHz: 6 }],
+    [{ depthCents: 30, rateHz: 6 }, { depthDb: 3, rateHz: 8 }],
+  ])('one long note with vibrato %o and tremor %o: a single attack', (vibrato, tremor) => {
+    const { result } = playGame({ vibrato, tremor }, ONE_LONG_F_SHARP, TWO_F_SHARPS);
+    expect(result.judgments.map((j) => j.judgment)).toEqual(['perfect', 'miss']);
   });
 });
 

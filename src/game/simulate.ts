@@ -1,5 +1,5 @@
 import { DEFAULT_A4, midiToFrequency } from '../audio/notes';
-import { DEFAULT_SAMPLE_RATE, mulberry32, tone, type Vibrato } from '../audio/testing/synth';
+import { DEFAULT_SAMPLE_RATE, VIOLIN_HARMONICS, mulberry32, whiteNoise, type Vibrato } from '../audio/testing/synth';
 import { scheduleSong } from './song';
 import type { SimulatedPlayer, SimulateParams, Song } from './types';
 
@@ -7,8 +7,9 @@ export const MAX_SIMULATE_MS = 1000;
 /** A wrong note is a whole tone above: far outside the ±50 cent tolerance, never mistaken for a near miss. */
 export const WRONG_NOTE_SEMITONES = 2;
 export const SIMULATED_VIBRATO: Vibrato = { depthCents: 20, rateHz: 5.5 };
-/** Silence before each bow change; enough for the pitch tracker to report the end of the note. */
-export const ARTICULATION_SECONDS = 0.04;
+/** Bow change before every note: the level dips this much for this long, with no silence and no phase reset. */
+export const BOW_CHANGE = { depthDb: 15, seconds: 0.03 };
+const EDGE_SECONDS = 0.005;
 const ATTACK_SECONDS = 0.012;
 const RELEASE_SECONDS = 0.02;
 const PEAK = 0.5;
@@ -23,6 +24,13 @@ export interface PerformanceOptions {
   seed?: number;
   a4?: number;
   sampleRate?: number;
+  vibrato?: Vibrato;
+  /** Level dip of each bow change, ending at every note onset after the first. */
+  bowChange?: { depthDb: number; seconds: number };
+  /** Bow tremor: slow level wobble of ±depthDb. */
+  tremor?: { depthDb: number; rateHz: number };
+  /** White noise amplitude added on top (bow scratch, room). */
+  noise?: number;
 }
 
 export interface Performance {
@@ -47,46 +55,71 @@ export function pickWrongNotes(noteCount: number, count: number, seed = 1): numb
   return indices.slice(0, n).sort((a, b) => a - b);
 }
 
-/** The whole song as a microphone take: violin-like tones with vibrato, every note shifted by offsetMs. */
+/**
+ * The whole song as one legato bow stroke sequence: a single phase-continuous violin-like voice with vibrato, a level
+ * dip before each note as the bow changes, every note shifted by offsetMs. Repeated notes are therefore told apart by
+ * level alone, the hard case for the judge.
+ */
 export function renderPerformance(song: Song, options: PerformanceOptions = {}): Performance {
-  const { offsetMs = 0, errors = 0, seed = 1, a4 = DEFAULT_A4, sampleRate = DEFAULT_SAMPLE_RATE } = options;
+  const {
+    offsetMs = 0,
+    errors = 0,
+    seed = 1,
+    a4 = DEFAULT_A4,
+    sampleRate = DEFAULT_SAMPLE_RATE,
+    vibrato = SIMULATED_VIBRATO,
+    bowChange = BOW_CHANGE,
+    tremor,
+    noise = 0,
+  } = options;
   const notes = scheduleSong(song, 0, a4);
   const wrong = options.wrong ? [...options.wrong] : pickWrongNotes(notes.length, errors, seed);
   const wrongSet = new Set(wrong);
+  const shift = offsetMs / 1000;
+  const onsets = notes.map((note) => note.time + shift);
   const last = notes.at(-1);
-  const end = last ? last.time + last.duration : 0;
-  const signal = new Float32Array(Math.round((LEAD_SECONDS + end + Math.max(0, offsetMs / 1000) + 1) * sampleRate));
-  const onsets: number[] = [];
+  const end = last ? last.time + last.duration + shift : 0;
+  const signal = new Float32Array(Math.round((LEAD_SECONDS + Math.max(0, end) + 1) * sampleRate));
+  const frequencies = notes.map((note) =>
+    midiToFrequency(wrongSet.has(note.index) ? note.midi + WRONG_NOTE_SEMITONES : note.midi, a4),
+  );
+  const dipGain = 10 ** (-bowChange.depthDb / 20);
+  const scale = PEAK / VIOLIN_HARMONICS.reduce((sum, h) => sum + h, 0);
+  const nyquist = sampleRate / 2;
 
-  for (const note of notes) {
-    const onset = note.time + offsetMs / 1000;
-    onsets.push(onset);
-    const midi = wrongSet.has(note.index) ? note.midi + WRONG_NOTE_SEMITONES : note.midi;
-    const durationSec = Math.max(0.05, note.duration - ARTICULATION_SECONDS);
-    const samples = tone({
-      frequency: midiToFrequency(midi, a4),
-      durationSec,
-      sampleRate,
-      vibrato: SIMULATED_VIBRATO,
-      peak: PEAK,
-    });
-    applyEnvelope(samples, sampleRate);
-    const start = Math.round((LEAD_SECONDS + onset) * sampleRate);
-    for (let i = 0; i < samples.length; i++) {
-      const at = start + i;
-      if (at >= 0 && at < signal.length) signal[at] += samples[i];
+  let current = 0;
+  let phase = 0;
+  for (let i = 0; i < signal.length && notes.length; i++) {
+    const t = i / sampleRate - LEAD_SECONDS;
+    if (t < onsets[0]) continue;
+    if (t > end + RELEASE_SECONDS) break;
+    while (current + 1 < notes.length && t >= onsets[current + 1]) current++;
+
+    let gain = Math.min(1, (t - onsets[0]) / ATTACK_SECONDS, (end + RELEASE_SECONDS - t) / RELEASE_SECONDS);
+    if (current + 1 < notes.length) gain *= dipEnvelope(onsets[current + 1] - t, bowChange.seconds, dipGain);
+    if (tremor) gain *= 10 ** ((tremor.depthDb * Math.sin(2 * Math.PI * tremor.rateHz * t)) / 20);
+
+    const f = frequencies[current] * 2 ** ((vibrato.depthCents * Math.sin(2 * Math.PI * vibrato.rateHz * t)) / 1200);
+    let sample = 0;
+    for (let k = 0; k < VIOLIN_HARMONICS.length && (k + 1) * f < nyquist; k++) {
+      sample += VIOLIN_HARMONICS[k] * Math.sin((k + 1) * phase);
     }
+    signal[i] = sample * gain * scale;
+    phase += (2 * Math.PI * f) / sampleRate;
+  }
+  if (noise > 0) {
+    const hiss = whiteNoise(signal.length, noise, seed);
+    for (let i = 0; i < signal.length; i++) signal[i] += hiss[i];
   }
   return { signal, sampleRate, wrong, onsets };
 }
 
-function applyEnvelope(samples: Float32Array, sampleRate: number): void {
-  const attack = Math.round(ATTACK_SECONDS * sampleRate);
-  const release = Math.round(RELEASE_SECONDS * sampleRate);
-  for (let i = 0; i < samples.length; i++) {
-    const fromEnd = samples.length - 1 - i;
-    samples[i] *= Math.min(1, i / attack, fromEnd / release);
-  }
+/** Gain `before` seconds ahead of a bow change's end: dipped for `seconds`, with short linear edges; 1 elsewhere. */
+function dipEnvelope(before: number, seconds: number, dipGain: number): number {
+  if (before < 0 || before > seconds + EDGE_SECONDS) return 1;
+  if (before > seconds) return 1 - ((seconds + EDGE_SECONDS - before) / EDGE_SECONDS) * (1 - dipGain);
+  if (before < EDGE_SECONDS) return dipGain + ((EDGE_SECONDS - before) / EDGE_SECONDS) * (1 - dipGain);
+  return dipGain;
 }
 
 export interface SimulatePlayerOptions {
@@ -96,7 +129,7 @@ export interface SimulatePlayerOptions {
   a4?: number;
 }
 
-/** Renders the take up front (~0.2 s for this song) so playAt only schedules a buffer. */
+/** Renders the take up front (~0.3 s for this song) so playAt only schedules a buffer. */
 export function simulatePlayer(
   context: BaseAudioContext,
   song: Song,
