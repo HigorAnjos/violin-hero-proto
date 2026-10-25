@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#1a1024" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <title>Violin Hero · Jogar</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: system-ui, sans-serif;
+        --ink: #f2eaf7;
+        --muted: #b9a8c9;
+        --panel: #2e2140;
+        --accent: #e0a33a;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #1a1024;
+        color: var(--ink);
+        overflow: hidden;
+        overscroll-behavior: none;
+      }
+      #app {
+        position: fixed;
+        inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        touch-action: none;
+      }
+      canvas {
+        display: block;
+      }
+      .overlay {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: rgb(26 16 36 / 0.88);
+        padding: 16px;
+      }
+      .overlay[hidden] {
+        display: none;
+      }
+      .panel {
+        width: min(100%, 380px);
+        display: grid;
+        gap: 16px;
+        text-align: center;
+      }
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+      h1 {
+        font-size: 1.8rem;
+      }
+      .muted {
+        color: var(--muted);
+        line-height: 1.4;
+      }
+      .test-mode {
+        padding: 8px 12px;
+        border-radius: 8px;
+        background: #3a2a10;
+        color: var(--accent);
+      }
+      .error {
+        color: #ff8a8f;
+        min-height: 1.4em;
+      }
+      .actions {
+        display: grid;
+        gap: 12px;
+      }
+      button,
+      a.button {
+        font: inherit;
+        font-size: 1.15rem;
+        min-height: 56px;
+        padding: 14px;
+        border: 0;
+        border-radius: 14px;
+        font-weight: 700;
+        touch-action: manipulation;
+        background: #45325e;
+        color: var(--ink);
+        text-decoration: none;
+        display: grid;
+        place-items: center;
+        box-sizing: border-box;
+      }
+      button.primary {
+        background: var(--accent);
+        color: #1a1024;
+      }
+      button:disabled {
+        opacity: 0.5;
+      }
+      #final-score {
+        font-size: 3rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+      }
+      #counts {
+        margin: 0;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+      }
+      #counts div {
+        padding: 8px 4px;
+        border-radius: 10px;
+        background: var(--panel);
+      }
+      #counts dt {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      #counts dd {
+        margin: 0;
+        font-size: 1.4rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+      }
+      #fps {
+        position: fixed;
+        left: 8px;
+        bottom: calc(8px + env(safe-area-inset-bottom));
+        padding: 2px 6px;
+        border-radius: 6px;
+        background: rgb(0 0 0 / 0.6);
+        color: #9ef0b8;
+        font: 600 13px ui-monospace, monospace;
+        pointer-events: none;
+      }
+      #fps[hidden] {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <output id="fps" hidden></output>
+
+    <section id="start" class="overlay" aria-labelledby="start-title">
+      <div class="panel">
+        <h1 id="start-title">Ode à Alegria</h1>
+        <p class="muted" id="start-info">Toque as notas quando elas chegarem na linha.</p>
+        <p class="test-mode" id="test-mode" hidden></p>
+        <div class="actions">
+          <button id="play" class="primary" type="button">Começar</button>
+          <a class="button" href="./">Início</a>
+        </div>
+        <p class="error" id="start-error" role="alert"></p>
+      </div>
+    </section>
+
+    <section id="paused" class="overlay" aria-labelledby="paused-title" hidden>
+      <div class="panel">
+        <h2 id="paused-title">Pausado</h2>
+        <div class="actions">
+          <button id="resume" class="primary" type="button">Continuar</button>
+          <button id="restart" type="button">Recomeçar</button>
+          <a class="button" href="./">Sair</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="end" class="overlay" aria-labelledby="end-title" hidden>
+      <div class="panel">
+        <h2 id="end-title">Fim da música</h2>
+        <p id="final-score">0</p>
+        <p class="muted" id="final-combo"></p>
+        <dl id="counts"></dl>
+        <div class="actions">
+          <button id="again" class="primary" type="button">Jogar de novo</button>
+          <a class="button" href="./">Início</a>
+        </div>
+      </div>
+    </section>
+
+    <script type="module" src="/src/game/main.ts"></script>
+  </body>
+</html>

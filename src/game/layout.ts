@@ -46,6 +46,8 @@ export function trackLayout(width: number, height: number): TrackLayout {
   const noteWidth = Math.round(laneWidth * 0.78)
   const noteHeight = Math.round(Math.max(36, Math.min(60, noteWidth * 0.55)))
 
+  const feedbackSize = Math.round(Math.max(18, Math.min(30, laneWidth * 0.24)))
+
   return {
     width,
     height,
@@ -56,8 +58,8 @@ export function trackLayout(width: number, height: number): TrackLayout {
     hitY,
     note: { width: noteWidth, height: noteHeight },
     labelSize: Math.round(noteHeight * 0.48),
-    feedbackY: hitY - noteHeight * 1.4,
-    feedbackSize: Math.round(Math.max(18, Math.min(30, laneWidth * 0.24))),
+    feedbackY: Math.round(hitY + noteHeight / 2 + feedbackSize),
+    feedbackSize,
     speed: (hitY - top) / LEAD_SECONDS,
   }
 }

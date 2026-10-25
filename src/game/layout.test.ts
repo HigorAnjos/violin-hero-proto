@@ -37,6 +37,12 @@ describe('trackLayout', () => {
     for (let i = 1; i < l.lanes.length; i++) expect(l.lanes[i].x).toBeGreaterThan(l.lanes[i - 1].x)
   })
 
+  it.each(viewports)('shows the judgment below the hit line, out of the falling notes, at %ix%i', (w, h) => {
+    const l = trackLayout(w, h)
+    expect(l.feedbackY - l.feedbackSize / 2).toBeGreaterThan(l.hitY + l.note.height / 2)
+    expect(l.feedbackY + l.feedbackSize / 2).toBeLessThanOrEqual(h)
+  })
+
   it('fits a note inside its lane', () => {
     const l = trackLayout(320, 568)
     expect(l.note.width).toBeLessThan(l.lanes[0].width)
