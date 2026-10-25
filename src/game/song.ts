@@ -1,5 +1,5 @@
 import { DEFAULT_A4, HIGHEST_MIDI, LOWEST_MIDI, midiToFrequency } from '../audio/notes';
-import odeToJoyJson from './songs/ode-to-joy.json';
+import cMajorScaleJson from './songs/c-major-scale.json';
 import { OPEN_STRING_MIDI, type Song, type SongNote, type StringIndex, type TimedNote } from './types';
 
 /** First position reaches a perfect fifth above each open string with the 4th finger. */
@@ -88,5 +88,5 @@ export function scheduleSong(song: Song, startAt: number, a4: number = DEFAULT_A
   }));
 }
 
-/** Ode to Joy in D major, 16 bars at 90 BPM; public domain. */
-export const ODE_TO_JOY: Song = parseSong(odeToJoyJson);
+/** C major scale C4–C5–C4 in first position, quarter notes at 90 BPM ending on a half note. */
+export const C_MAJOR_SCALE: Song = parseSong(cMajorScaleJson);

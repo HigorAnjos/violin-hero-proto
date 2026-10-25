@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PitchTracker, SlidingWindow } from '../audio/pitch/tracker';
 import { createJudge } from './judge';
-import { ODE_TO_JOY, scheduleSong } from './song';
+import { C_MAJOR_SCALE, scheduleSong } from './song';
 import { LEAD_SECONDS, parseSimulate, pickWrongNotes, renderPerformance, simulatePlayer, type PerformanceOptions } from './simulate';
 import type { GameEvent, GameResult, Song } from './types';
 
@@ -11,7 +11,7 @@ const BLOCK = 128;
 /** Plays a rendered take through the real pitch tracker into the judge, as the worklet would, block by block. */
 function playGame(
   options: PerformanceOptions,
-  played: Song = ODE_TO_JOY,
+  played: Song = C_MAJOR_SCALE,
   judged: Song = played,
 ): { result: GameResult; events: GameEvent[]; wrong: number[] } {
   const take = renderPerformance(played, { a4: A4, ...options });
@@ -35,21 +35,21 @@ function playGame(
 describe('whole game with the simulated player', { timeout: 30_000 }, () => {
   it('on time: every note Perfeito, full combo', () => {
     const { result } = playGame({ offsetMs: 0 });
-    expect(result.judgments).toHaveLength(ODE_TO_JOY.notes.length);
-    expect(result.counts).toEqual({ perfect: ODE_TO_JOY.notes.length, great: 0, good: 0, miss: 0 });
-    expect(result.maxCombo).toBe(ODE_TO_JOY.notes.length);
+    expect(result.judgments).toHaveLength(C_MAJOR_SCALE.notes.length);
+    expect(result.counts).toEqual({ perfect: C_MAJOR_SCALE.notes.length, great: 0, good: 0, miss: 0 });
+    expect(result.maxCombo).toBe(C_MAJOR_SCALE.notes.length);
     const offsets = result.judgments.map((j) => j.offsetMs ?? NaN);
     expect(Math.max(...offsets.map(Math.abs))).toBeLessThan(30);
   });
 
   it('100 ms late: every note Ótimo', () => {
     const { result } = playGame({ offsetMs: 100 });
-    expect(result.counts).toEqual({ perfect: 0, great: ODE_TO_JOY.notes.length, good: 0, miss: 0 });
+    expect(result.counts).toEqual({ perfect: 0, great: C_MAJOR_SCALE.notes.length, good: 0, miss: 0 });
   });
 
   it('100 ms early: every note Ótimo too', () => {
     const { result } = playGame({ offsetMs: -100 });
-    expect(result.counts.great).toBe(ODE_TO_JOY.notes.length);
+    expect(result.counts.great).toBe(C_MAJOR_SCALE.notes.length);
   });
 
   it('with errors: exactly the wrong notes are Errou and each one zeroes the combo', () => {
@@ -57,22 +57,22 @@ describe('whole game with the simulated player', { timeout: 30_000 }, () => {
     expect(wrong).toHaveLength(3);
     const misses = result.judgments.filter((j) => j.judgment === 'miss').map((j) => j.index);
     expect(misses).toEqual(wrong);
-    expect(result.counts.perfect).toBe(ODE_TO_JOY.notes.length - 3);
+    expect(result.counts.perfect).toBe(C_MAJOR_SCALE.notes.length - 3);
     for (const index of wrong) {
       const event = events.find((e) => e.type === 'judgment' && e.index === index);
       expect(event).toMatchObject({ judgment: 'miss', combo: 0, multiplier: 1 });
     }
-    expect(result.maxCombo).toBeLessThan(ODE_TO_JOY.notes.length);
+    expect(result.maxCombo).toBeLessThan(C_MAJOR_SCALE.notes.length);
   });
 
-  it.each([180, -180])('%s ms off: every note Bom, a short note and its repetition included', (offsetMs) => {
+  it.each([180, -180])('%s ms off: every note Bom', (offsetMs) => {
     const { result } = playGame({ offsetMs });
-    expect(result.counts.good).toBe(ODE_TO_JOY.notes.length);
+    expect(result.counts.good).toBe(C_MAJOR_SCALE.notes.length);
   });
 
   it('bow changes are level dips only: no silence anywhere in the take', () => {
-    const { signal, sampleRate } = renderPerformance(ODE_TO_JOY, { a4: A4 });
-    const notes = scheduleSong(ODE_TO_JOY, LEAD_SECONDS, A4);
+    const { signal, sampleRate } = renderPerformance(C_MAJOR_SCALE, { a4: A4 });
+    const notes = scheduleSong(C_MAJOR_SCALE, LEAD_SECONDS, A4);
     const from = Math.round(notes[0].time * sampleRate) + 2000;
     const to = Math.round((notes.at(-1)!.time + 0.5) * sampleRate);
     const hop = 480;
@@ -87,7 +87,7 @@ describe('whole game with the simulated player', { timeout: 30_000 }, () => {
 });
 
 const TWO_F_SHARPS: Song = {
-  ...ODE_TO_JOY,
+  ...C_MAJOR_SCALE,
   id: 'two-f-sharps',
   notes: [
     { beat: 0, beats: 1, midi: 66, string: 1 },
@@ -125,7 +125,7 @@ describe('repeated note re-bowed without silence', { timeout: 30_000 }, () => {
 
 describe('renderPerformance', () => {
   it('places each onset at note time + offset, with beat 0 at LEAD_SECONDS', () => {
-    const take = renderPerformance(ODE_TO_JOY, { offsetMs: 50, sampleRate: 8000 });
+    const take = renderPerformance(C_MAJOR_SCALE, { offsetMs: 50, sampleRate: 8000 });
     expect(take.onsets[0]).toBeCloseTo(0.05);
     expect(take.onsets[4]).toBeCloseTo(4 * (60 / 90) + 0.05);
     const first = take.signal.findIndex((v) => Math.abs(v) > 1e-4);
@@ -133,7 +133,7 @@ describe('renderPerformance', () => {
   });
 
   it('honours explicit wrong notes', () => {
-    expect(renderPerformance(ODE_TO_JOY, { wrong: [2, 5], sampleRate: 8000 }).wrong).toEqual([2, 5]);
+    expect(renderPerformance(C_MAJOR_SCALE, { wrong: [2, 5], sampleRate: 8000 }).wrong).toEqual([2, 5]);
   });
 });
 
@@ -178,8 +178,8 @@ describe('simulatePlayer', () => {
 
   it('schedules the rendered take so beat 0 lands on startAt', () => {
     const ctx = context();
-    const player = simulatePlayer(ctx, ODE_TO_JOY, { errors: 2, seed: 4 });
-    expect(player.wrong).toEqual(pickWrongNotes(ODE_TO_JOY.notes.length, 2, 4));
+    const player = simulatePlayer(ctx, C_MAJOR_SCALE, { errors: 2, seed: 4 });
+    expect(player.wrong).toEqual(pickWrongNotes(C_MAJOR_SCALE.notes.length, 2, 4));
     player.playAt(LEAD_SECONDS + 0.5);
     expect(ctx.sources).toHaveLength(1);
     expect(ctx.sources[0].startTime).toBeCloseTo(0.5);
@@ -190,7 +190,7 @@ describe('simulatePlayer', () => {
   it('starts right away, skipping the lead-in already past, when startAt is close', () => {
     const ctx = context();
     Object.assign(ctx, { currentTime: 1 });
-    simulatePlayer(ctx, ODE_TO_JOY).playAt(1.2);
+    simulatePlayer(ctx, C_MAJOR_SCALE).playAt(1.2);
     expect(ctx.sources[0].startTime).toBe(1);
   });
 });

@@ -4,7 +4,7 @@ import { describeMicError, openMicrophone } from '../audio/microphone'
 import { loadA4 } from '../tuner/reference'
 import { AudioClock, fallbackStamp, isUsableStamp } from './clock'
 import { FpsMeter, parseFpsFlag } from './fps'
-import { ODE_TO_JOY as song, parseSimulate, simulatePlayer, startGame, type GameEvent, type GameHandle, type GameResult } from './index'
+import { C_MAJOR_SCALE as song, parseSimulate, simulatePlayer, startGame, type GameEvent, type GameHandle, type GameResult } from './index'
 import { formatScore, isSongOver, JUDGMENT_LABEL, JUDGMENTS, startView } from './present'
 import { GameScene } from './scene'
 

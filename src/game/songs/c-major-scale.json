@@ -1,0 +1,28 @@
+{
+  "id": "c-major-scale",
+  "title": "Escala de Dó maior",
+  "composer": "",
+  "key": "C major",
+  "bpm": 90,
+  "beatsPerBar": 4,
+  "notes": [
+    { "beat": 0, "beats": 1, "midi": 60, "string": 0 },
+    { "beat": 1, "beats": 1, "midi": 62, "string": 1 },
+    { "beat": 2, "beats": 1, "midi": 64, "string": 1 },
+    { "beat": 3, "beats": 1, "midi": 65, "string": 1 },
+
+    { "beat": 4, "beats": 1, "midi": 67, "string": 1 },
+    { "beat": 5, "beats": 1, "midi": 69, "string": 2 },
+    { "beat": 6, "beats": 1, "midi": 71, "string": 2 },
+    { "beat": 7, "beats": 1, "midi": 72, "string": 2 },
+
+    { "beat": 8, "beats": 1, "midi": 71, "string": 2 },
+    { "beat": 9, "beats": 1, "midi": 69, "string": 2 },
+    { "beat": 10, "beats": 1, "midi": 67, "string": 1 },
+    { "beat": 11, "beats": 1, "midi": 65, "string": 1 },
+
+    { "beat": 12, "beats": 1, "midi": 64, "string": 1 },
+    { "beat": 13, "beats": 1, "midi": 62, "string": 1 },
+    { "beat": 14, "beats": 2, "midi": 60, "string": 0 }
+  ]
+}
