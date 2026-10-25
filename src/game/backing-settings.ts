@@ -6,7 +6,10 @@ export interface BackingSettings {
   enabled: boolean
   /** Linear 0..1. */
   volume: number
-  /** "Estou de fone": the microphone cannot hear the orchestra, so it may play louder and with the guide melody. */
+  /**
+   * "Estou de fone": the microphone cannot hear the orchestra, so it may play louder and with the guide melody.
+   * Never stored: a player who comes back without headphones would get chords in the melody range through the speaker.
+   */
   headphones: boolean
   /** Guide melody as chosen by the player; only plays with headphones (see guideOn). */
   guide: boolean
@@ -34,7 +37,7 @@ export function loadBackingSettings(storage: Pick<Storage, 'getItem'> | undefine
     return {
       enabled: bool(value.enabled, DEFAULT_BACKING_SETTINGS.enabled),
       volume: typeof value.volume === 'number' ? clampVolume(value.volume) : DEFAULT_BACKING_SETTINGS.volume,
-      headphones: bool(value.headphones, DEFAULT_BACKING_SETTINGS.headphones),
+      headphones: false,
       guide: bool(value.guide, DEFAULT_BACKING_SETTINGS.guide),
     }
   } catch {
@@ -46,8 +49,8 @@ export function loadBackingSettings(storage: Pick<Storage, 'getItem'> | undefine
 export function saveBackingSettings(storage: Pick<Storage, 'setItem'> | undefined, settings: BackingSettings): boolean {
   try {
     if (!storage) return false
-    const { enabled, headphones, guide } = settings
-    storage.setItem(BACKING_STORAGE_KEY, JSON.stringify({ enabled, volume: clampVolume(settings.volume), headphones, guide }))
+    const { enabled, guide } = settings
+    storage.setItem(BACKING_STORAGE_KEY, JSON.stringify({ enabled, volume: clampVolume(settings.volume), guide }))
     return true
   } catch {
     return false

@@ -47,11 +47,14 @@ describe('loadBackingSettings', () => {
     expect(loadBackingSettings(undefined)).toEqual(DEFAULT_BACKING_SETTINGS)
   })
 
-  it('reads what was saved', () => {
+  it('reads what was saved, except headphones', () => {
     const storage = memoryStorage()
-    const saved = { enabled: false, volume: 0.3, headphones: true, guide: true }
-    saveBackingSettings(storage, saved)
-    expect(loadBackingSettings(storage)).toEqual(saved)
+    saveBackingSettings(storage, { enabled: false, volume: 0.3, headphones: true, guide: true })
+    expect(loadBackingSettings(storage)).toEqual({ enabled: false, volume: 0.3, headphones: false, guide: true })
+  })
+
+  it('always starts without headphones, even if an older version stored them', () => {
+    expect(loadBackingSettings(stored('{"enabled":true,"volume":0.5,"headphones":true,"guide":true}')).headphones).toBe(false)
   })
 
   it('falls back field by field on junk', () => {
@@ -79,13 +82,12 @@ describe('loadBackingSettings', () => {
 })
 
 describe('saveBackingSettings', () => {
-  it('stores clamped JSON under its own key', () => {
+  it('stores clamped JSON under its own key, without headphones', () => {
     const storage = memoryStorage()
     expect(saveBackingSettings(storage, settings({ volume: -1, headphones: true }))).toBe(true)
     expect(JSON.parse(storage.data.get(BACKING_STORAGE_KEY)!)).toEqual({
       enabled: true,
       volume: 0,
-      headphones: true,
       guide: false,
     })
   })
