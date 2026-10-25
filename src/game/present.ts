@@ -47,6 +47,28 @@ export function isSongOver(now: number, lastNoteTime: number): boolean {
   return now >= lastNoteTime + END_TAIL_SECONDS
 }
 
+export interface StartView {
+  /** Shown above the buttons when the player should calibrate first; empty otherwise. */
+  warning: string
+  showCalibrate: boolean
+  playLabel: string
+  /** Calibrar takes the primary style when true, Começar otherwise. */
+  calibratePrimary: boolean
+}
+
+/** Without a saved delay the judge compensates 0 ms, and a phone's 100–200 ms round trip turns hits into Bom/Errou. */
+export function startView(hasCompensation: boolean, simulated: boolean): StartView {
+  if (simulated || hasCompensation) {
+    return { warning: '', showCalibrate: false, playLabel: 'Começar', calibratePrimary: false }
+  }
+  return {
+    warning: 'Você ainda não calibrou o atraso do som neste aparelho. Sem isso, as notas certas podem sair como Bom ou Errou.',
+    showCalibrate: true,
+    playLabel: 'Jogar sem calibrar',
+    calibratePrimary: true,
+  }
+}
+
 /** Short solfège name for a note chip, e.g. 'Fá♯' from 'Fá♯ 4'. */
 export function chipName(solfege: string): string {
   const space = solfege.lastIndexOf(' ')

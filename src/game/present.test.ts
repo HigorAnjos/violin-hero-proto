@@ -9,6 +9,7 @@ import {
   feedbackScale,
   isSongOver,
   JUDGMENT_LABEL,
+  startView,
 } from './present'
 
 describe('countdownStep', () => {
@@ -48,6 +49,24 @@ describe('feedback', () => {
 
   it('uses the Portuguese judgment names', () => {
     expect(Object.values(JUDGMENT_LABEL)).toEqual(['Perfeito', 'Ótimo', 'Bom', 'Errou'])
+  })
+})
+
+describe('startView', () => {
+  it('asks to calibrate first when no delay is saved', () => {
+    const v = startView(false, false)
+    expect(v.warning).not.toBe('')
+    expect(v.showCalibrate).toBe(true)
+    expect(v.calibratePrimary).toBe(true)
+    expect(v.playLabel).toBe('Jogar sem calibrar')
+  })
+
+  it('goes straight to the game once calibrated', () => {
+    expect(startView(true, false)).toEqual({ warning: '', showCalibrate: false, playLabel: 'Começar', calibratePrimary: false })
+  })
+
+  it('does not warn in ?simular mode, which plays without compensation', () => {
+    expect(startView(false, true).showCalibrate).toBe(false)
   })
 })
 

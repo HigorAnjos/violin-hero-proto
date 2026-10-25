@@ -1,10 +1,11 @@
 import { Application } from 'pixi.js'
+import { loadCompensation } from '../audio/calibration'
 import { describeMicError, openMicrophone } from '../audio/microphone'
 import { loadA4 } from '../tuner/reference'
 import { AudioClock, fallbackStamp, isUsableStamp } from './clock'
 import { FpsMeter, parseFpsFlag } from './fps'
 import { ODE_TO_JOY as song, parseSimulate, simulatePlayer, startGame, type GameEvent, type GameHandle, type GameResult } from './index'
-import { formatScore, isSongOver, JUDGMENT_LABEL, JUDGMENTS } from './present'
+import { formatScore, isSongOver, JUDGMENT_LABEL, JUDGMENTS, startView } from './present'
 import { GameScene } from './scene'
 
 const $ = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector)!
@@ -245,6 +246,14 @@ function showEnd(final: GameResult): void {
   void stopSession()
   $<HTMLButtonElement>('#again').focus()
 }
+
+const view = startView(loadCompensation(storage) != null, simulate != null)
+const calibrateWarning = $<HTMLParagraphElement>('#calibrate-warning')
+calibrateWarning.textContent = view.warning
+calibrateWarning.hidden = view.warning === ''
+$<HTMLAnchorElement>('#calibrate').hidden = !view.showCalibrate
+playButton.textContent = view.playLabel
+playButton.classList.toggle('primary', !view.calibratePrimary)
 
 if (simulate) {
   testMode.hidden = false
