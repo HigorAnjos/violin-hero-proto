@@ -13,6 +13,7 @@ export default defineConfig(({ command, isPreview }) => ({
         tuner: fileURLToPath(new URL('./tuner.html', import.meta.url)),
         calibrar: fileURLToPath(new URL('./calibrar.html', import.meta.url)),
         jogo: fileURLToPath(new URL('./jogo.html', import.meta.url)),
+        boasVindas: fileURLToPath(new URL('./boas-vindas.html', import.meta.url)),
       },
     },
   },
