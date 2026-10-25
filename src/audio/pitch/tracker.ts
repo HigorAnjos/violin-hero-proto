@@ -1,6 +1,6 @@
 import { PitchDetector } from 'pitchy';
 import { DEFAULT_A4, HIGHEST_MIDI, LOWEST_MIDI, frequencyToMidi, midiToFrequency, noteFromMidi } from '../notes';
-import { DEFAULT_MIN_CLARITY, HOP_SECONDS, MEDIAN_WINDOW, SWITCH_NOW_CENTS, type PitchReading } from './types';
+import { DEFAULT_MIN_CLARITY, HIGH_PASS_HZ, HOP_SECONDS, MEDIAN_WINDOW, SWITCH_NOW_CENTS, type PitchReading } from './types';
 
 const MIN_WINDOW_SECONDS = 0.04;
 const MIN_VOLUME_DB = -60;
@@ -79,6 +79,11 @@ export class PitchTracker {
     return this._a4;
   }
 
+  /** The stream of windows this tracker expects, high-passed at HIGH_PASS_HZ. */
+  createWindow(): SlidingWindow {
+    return new SlidingWindow(this.windowSize, this.hopSize, new HighPass(HIGH_PASS_HZ, this.sampleRate));
+  }
+
   setA4(a4: number): void {
     this.minHz = midiToFrequency(LOWEST_MIDI - SWITCH_NOW_CENTS / 100, a4);
     this.maxHz = midiToFrequency(HIGHEST_MIDI + SWITCH_NOW_CENTS / 100, a4);
@@ -141,6 +146,49 @@ function clampMidi(midi: number): number {
   return Math.min(HIGHEST_MIDI, Math.max(LOWEST_MIDI, midi));
 }
 
+/** RBJ high-pass biquad, transposed direct form II. */
+class Biquad {
+  private readonly b0: number;
+  private readonly b1: number;
+  private readonly b2: number;
+  private readonly a1: number;
+  private readonly a2: number;
+  private z1 = 0;
+  private z2 = 0;
+
+  constructor(cutoffHz: number, q: number, sampleRate: number) {
+    const w = (2 * Math.PI * cutoffHz) / sampleRate;
+    const alpha = Math.sin(w) / (2 * q);
+    const cos = Math.cos(w);
+    const a0 = 1 + alpha;
+    this.b0 = (1 + cos) / 2 / a0;
+    this.b1 = -(1 + cos) / a0;
+    this.b2 = this.b0;
+    this.a1 = (-2 * cos) / a0;
+    this.a2 = (1 - alpha) / a0;
+  }
+
+  process(x: number): number {
+    const y = this.b0 * x + this.z1;
+    this.z1 = this.b1 * x - this.a1 * y + this.z2;
+    this.z2 = this.b2 * x - this.a2 * y;
+    return y;
+  }
+}
+
+/** 4th-order Butterworth high-pass: two biquads with the Butterworth Qs. */
+export class HighPass {
+  private readonly stages: [Biquad, Biquad];
+
+  constructor(cutoffHz: number, sampleRate: number) {
+    this.stages = [new Biquad(cutoffHz, 0.5412, sampleRate), new Biquad(cutoffHz, 1.3066, sampleRate)];
+  }
+
+  process(x: number): number {
+    return this.stages[1].process(this.stages[0].process(x));
+  }
+}
+
 /** Accumulates render quanta and hands out the latest `size` samples every `hop` samples. */
 export class SlidingWindow {
   private readonly ring: Float32Array;
@@ -152,6 +200,7 @@ export class SlidingWindow {
   constructor(
     readonly size: number,
     readonly hop: number,
+    private readonly filter?: HighPass,
   ) {
     this.ring = new Float32Array(size);
     this.window = new Float32Array(size);
@@ -160,7 +209,7 @@ export class SlidingWindow {
   /** `endOffset` is the index in `block` just after the window's last sample. The window is reused between calls. */
   push(block: Float32Array, onWindow: (window: Float32Array, endOffset: number) => void): void {
     for (let i = 0; i < block.length; i++) {
-      this.ring[this.write] = block[i];
+      this.ring[this.write] = this.filter ? this.filter.process(block[i]) : block[i];
       this.write = (this.write + 1) % this.size;
       if (this.filled < this.size) this.filled++;
       if (++this.sinceHop >= this.hop && this.filled === this.size) {

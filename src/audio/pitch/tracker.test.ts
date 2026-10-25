@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { HIGHEST_MIDI, LOWEST_MIDI, midiToFrequency, noteName } from '../notes';
 import { concat, silence, tone, whiteNoise } from '../testing/synth';
-import { PitchTracker, SlidingWindow, hopSizeFor, median, windowSizeFor, type TrackerOptions } from './tracker';
-import type { PitchReading } from './types';
+import { HighPass, PitchTracker, SlidingWindow, hopSizeFor, median, windowSizeFor, type TrackerOptions } from './tracker';
+import { HIGH_PASS_HZ, type PitchReading } from './types';
 
 const SAMPLE_RATE = 48000;
 const ALL_MIDI = Array.from({ length: HIGHEST_MIDI - LOWEST_MIDI + 1 }, (_, i) => LOWEST_MIDI + i);
@@ -11,7 +11,7 @@ const WARMUP_SEC = 0.1;
 function track(signal: Float32Array, options: Partial<TrackerOptions> = {}): (PitchReading | null)[] {
   const sampleRate = options.sampleRate ?? SAMPLE_RATE;
   const tracker = new PitchTracker({ sampleRate, ...options });
-  const stream = new SlidingWindow(tracker.windowSize, tracker.hopSize);
+  const stream = tracker.createWindow();
   const events: (PitchReading | null)[] = [];
   const block = 128;
   for (let start = 0; start < signal.length; start += block) {
@@ -69,6 +69,45 @@ describe('SlidingWindow', () => {
       [3, 4, 5, 6],
     ]);
     expect(ends).toEqual([4]);
+  });
+});
+
+describe('HighPass', () => {
+  function gainDb(frequency: number): number {
+    const filter = new HighPass(HIGH_PASS_HZ, SAMPLE_RATE);
+    const input = tone({ frequency, durationSec: 1, harmonics: [1] });
+    let inSum = 0;
+    let outSum = 0;
+    input.forEach((x, i) => {
+      const y = filter.process(x);
+      if (i < SAMPLE_RATE / 2) return;
+      inSum += x * x;
+      outSum += y * y;
+    });
+    return 10 * Math.log10(outSum / inSum);
+  }
+
+  it('is a 4th-order Butterworth at HIGH_PASS_HZ: −3 dB at the cutoff, ~24 dB per octave below', () => {
+    expect(gainDb(HIGH_PASS_HZ)).toBeCloseTo(-3, 0);
+    expect(gainDb(HIGH_PASS_HZ / 2)).toBeLessThan(-23);
+  });
+
+  it('barely touches the violin: under 1.5 dB at G3, under 0.1 dB from A4 up', () => {
+    expect(gainDb(midiToFrequency(LOWEST_MIDI))).toBeGreaterThan(-1.5);
+    expect(gainDb(midiToFrequency(69))).toBeGreaterThan(-0.1);
+  });
+
+  it('removes the accompaniment register: ≥ 4 dB at E♭3, ≥ 20 dB at E2', () => {
+    expect(gainDb(midiToFrequency(51))).toBeLessThan(-4);
+    expect(gainDb(midiToFrequency(40))).toBeLessThan(-20);
+  });
+
+  it('is on in the window stream the tracker creates', () => {
+    const tracker = new PitchTracker({ sampleRate: SAMPLE_RATE });
+    const stream = tracker.createWindow();
+    let last = new Float32Array(0);
+    stream.push(new Float32Array(tracker.windowSize).fill(1), (w) => (last = Float32Array.from(w)));
+    expect(Math.abs(last.at(-1)!)).toBeLessThan(0.01);
   });
 });
 

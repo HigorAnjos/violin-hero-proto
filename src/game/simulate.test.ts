@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { PitchTracker, SlidingWindow } from '../audio/pitch/tracker';
+import { PitchTracker } from '../audio/pitch/tracker';
 import { createJudge } from './judge';
 import { C_MAJOR_SCALE, scheduleSong } from './song';
 import { LEAD_SECONDS, parseSimulate, pickWrongNotes, renderPerformance, simulatePlayer, type PerformanceOptions } from './simulate';
@@ -19,7 +19,7 @@ function playGame(
   const events: GameEvent[] = [];
   const judge = createJudge(scheduleSong(judged, LEAD_SECONDS, A4), { onEvent: (e) => events.push(e) });
   const tracker = new PitchTracker({ sampleRate, a4: A4 });
-  const stream = new SlidingWindow(tracker.windowSize, tracker.hopSize);
+  const stream = tracker.createWindow();
   for (let start = 0; start < signal.length && !judge.done; start += BLOCK) {
     const blockStart = start / sampleRate;
     stream.push(signal.subarray(start, start + BLOCK), (window, end) => {

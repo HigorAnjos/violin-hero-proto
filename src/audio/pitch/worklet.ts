@@ -1,5 +1,5 @@
 import { PROCESSOR_NAME, type FromProcessor, type ProcessorOptions, type ToProcessor } from './protocol';
-import { PitchTracker, SlidingWindow } from './tracker';
+import { PitchTracker, type SlidingWindow } from './tracker';
 
 declare const sampleRate: number;
 declare const currentTime: number;
@@ -21,7 +21,7 @@ class PitchProcessor extends AudioWorkletProcessor {
     super();
     const { a4, minClarity } = options.processorOptions as ProcessorOptions;
     this.tracker = new PitchTracker({ sampleRate, a4, minClarity });
-    this.stream = new SlidingWindow(this.tracker.windowSize, this.tracker.hopSize);
+    this.stream = this.tracker.createWindow();
     this.port.onmessage = (event: MessageEvent<ToProcessor>) => {
       if (event.data.type === 'a4') this.tracker.setA4(event.data.a4);
     };

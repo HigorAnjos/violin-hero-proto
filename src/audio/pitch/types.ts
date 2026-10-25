@@ -3,6 +3,11 @@ export const MEDIAN_WINDOW = 5;
 export const HOP_SECONDS = 0.01;
 /** A held note changes at once beyond this distance; closer, only when the ~150 ms pitch centre crosses ±50. */
 export const SWITCH_NOW_CENTS = 80;
+/**
+ * Cutoff of the 4th-order high-pass ahead of detection: the accompaniment lives below the violin's G3 (~197 Hz) and
+ * its leak through the speaker lowers McLeod clarity under the 0.9 gate; G3 loses ~1 dB.
+ */
+export const HIGH_PASS_HZ = 170;
 
 export interface PitchReading {
   /** AudioContext time, in seconds, of the last sample of the analysed window. */
