@@ -11,6 +11,7 @@ export default defineConfig(({ command, isPreview }) => ({
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         mic: fileURLToPath(new URL('./mic.html', import.meta.url)),
         tuner: fileURLToPath(new URL('./tuner.html', import.meta.url)),
+        calibrar: fileURLToPath(new URL('./calibrar.html', import.meta.url)),
       },
     },
   },
