@@ -1,6 +1,16 @@
 import { Container, Graphics, Sprite, Text, Texture, type Renderer } from 'pixi.js'
 import { solfegeName } from '../audio/notes'
-import { LEAD_SECONDS, lowerBound, maxNotesInWindow, MISS_TAIL_SECONDS, noteY, trackLayout, type TrackLayout } from './layout'
+import {
+  enterSeconds,
+  entryAlpha,
+  LEAD_SECONDS,
+  lowerBound,
+  maxNotesInWindow,
+  MISS_TAIL_SECONDS,
+  noteY,
+  trackLayout,
+  type TrackLayout,
+} from './layout'
 import {
   chipName,
   comboText,
@@ -30,6 +40,7 @@ interface Chip {
 interface LaneFeedback {
   sprite: Sprite
   at: number
+  judgment: Judgment | null
 }
 
 /**
@@ -62,6 +73,8 @@ export class GameScene extends Container {
   private judgmentTexture = new Map<Judgment, Texture>()
   private countdownTexture: Texture[] = []
   private labelCache = new Map<number, Texture>()
+  private lastNow = 0
+  private lastStartAt = Infinity
 
   constructor(
     private readonly renderer: Renderer,
@@ -88,7 +101,7 @@ export class GameScene extends Container {
       sprite.anchor.set(0.5)
       sprite.visible = false
       this.feedbackLayer.addChild(sprite)
-      this.feedback.push({ sprite, at: -Infinity })
+      this.feedback.push({ sprite, at: -Infinity, judgment: null })
     }
   }
 
@@ -97,7 +110,10 @@ export class GameScene extends Container {
     this.times = Float64Array.from(notes, (n) => n.time)
     this.state = new Uint8Array(notes.length)
     this.laneHitAt.fill(-Infinity)
-    for (const f of this.feedback) f.at = -Infinity
+    for (const f of this.feedback) {
+      f.at = -Infinity
+      f.judgment = null
+    }
     this.buildLabels()
     const poolSize = maxNotesInWindow(this.times, LEAD_SECONDS + MISS_TAIL_SECONDS + 0.5) + 2
     while (this.chips.length < poolSize) {
@@ -155,6 +171,8 @@ export class GameScene extends Container {
     this.countdown.position.set(width / 2, (l.track.top + l.hitY) / 2)
     for (const lane of this.feedback) lane.sprite.y = l.feedbackY
     this.feedback.forEach((f, i) => (f.sprite.x = l.lanes[i].x))
+    // The resize plugin renders before the next tick: redraw now so a paused game is not left empty.
+    this.update(this.lastNow, this.lastStartAt)
   }
 
   setScore(score: number, combo: number): void {
@@ -169,6 +187,7 @@ export class GameScene extends Container {
     this.state[index] = judgment === 'miss' ? MISSED : HIT
     const f = this.feedback[note.string]
     f.at = at
+    f.judgment = judgment
     f.sprite.texture = this.judgmentTexture.get(judgment) ?? Texture.EMPTY
     if (judgment !== 'miss') this.laneHitAt[note.string] = at
   }
@@ -176,8 +195,10 @@ export class GameScene extends Container {
   /** Draw the frame for clock time `now`; `startAt` is beat 0 on the same clock. */
   update(now: number, startAt: number): void {
     const l = this.l
+    this.lastNow = now
+    this.lastStartAt = startAt
     const first = lowerBound(this.times, now - MISS_TAIL_SECONDS)
-    const last = lowerBound(this.times, now + LEAD_SECONDS + 0.2)
+    const last = lowerBound(this.times, now + enterSeconds(l))
     let used = 0
     for (let i = first; i < last && used < this.chips.length; i++) {
       const s = this.state[i]
@@ -186,7 +207,7 @@ export class GameScene extends Container {
       const chip = this.chips[used++]
       const x = l.lanes[note.string].x
       const y = noteY(l, note.time, now)
-      const alpha = s === MISSED ? 0.3 : 1
+      const alpha = (s === MISSED ? 0.3 : 1) * entryAlpha(l, y)
       chip.gem.visible = chip.label.visible = true
       chip.gem.position.set(x, y)
       chip.gem.tint = l.lanes[note.string].color
@@ -233,29 +254,43 @@ export class GameScene extends Container {
     return this.bake(new Text({ text, style: { fill, fontFamily: FONT, fontWeight: weight, fontSize: size } }))
   }
 
+  /** Bakes the textures for the current layout; old ones are destroyed only after no sprite points at them. */
   private buildTextures(): void {
     const l = this.l
-    const old = [this.gemTexture, ...this.judgmentTexture.values(), ...this.countdownTexture]
+    const old = [this.gemTexture, ...this.judgmentTexture.values(), ...this.countdownTexture, ...this.labelCache.values()]
     const g = new Graphics()
       .roundRect(0, 0, l.note.width, l.note.height, l.note.height / 3)
       .fill(0xffffff)
       .roundRect(3, 3, l.note.width - 6, l.note.height * 0.4, l.note.height / 4)
       .fill({ color: 0xffffff, alpha: 0.35 })
     this.gemTexture = this.bake(g)
-    for (const chip of this.chips) chip.gem.texture = this.gemTexture
-
     this.judgmentTexture = new Map(JUDGMENTS.map((j) => [j, this.textTexture(JUDGMENT_LABEL[j], l.feedbackSize, JUDGMENT_COLOR[j])]))
-    this.feedback.forEach((f) => (f.sprite.texture = Texture.EMPTY))
     this.countdownTexture = COUNTDOWN_LABELS.map((t) => this.textTexture(t, Math.round(l.track.width * 0.3), INK))
+    this.labelCache = new Map()
+    this.buildLabels()
+
+    for (const chip of this.chips) {
+      chip.gem.texture = this.gemTexture
+      chip.label.texture = Texture.EMPTY
+      chip.gem.visible = chip.label.visible = false
+    }
+    for (const f of this.feedback) f.sprite.texture = f.judgment ? this.judgmentTexture.get(f.judgment)! : Texture.EMPTY
+    this.countdown.texture = Texture.EMPTY
+    this.countdown.visible = false
+
     for (const t of old) if (t !== Texture.EMPTY) t.destroy(true)
-    this.buildLabels(true)
   }
 
-  private buildLabels(force = false): void {
-    if (force) {
-      for (const t of this.labelCache.values()) t.destroy(true)
-      this.labelCache.clear()
-    }
+  /** Every texture a sprite of this scene currently points at; for tests. */
+  liveTextures(): Texture[] {
+    return [
+      ...this.chips.flatMap((c) => [c.gem.texture, c.label.texture]),
+      ...this.feedback.map((f) => f.sprite.texture),
+      this.countdown.texture,
+    ]
+  }
+
+  private buildLabels(): void {
     this.noteLabel = this.notes.map((n) => {
       let t = this.labelCache.get(n.midi)
       if (!t) {

@@ -69,6 +69,17 @@ export function noteY(layout: TrackLayout, noteTime: number, now: number): numbe
   return layout.hitY - (noteTime - now) * layout.speed
 }
 
+/** How long before its time a note is drawn: from fully inside the top of the track, never over the HUD. */
+export function enterSeconds(layout: TrackLayout): number {
+  return (layout.hitY - layout.track.top - layout.note.height / 2) / layout.speed
+}
+
+/** Fades a chip in over its own height after it enters, so it does not pop in at the top of the track. */
+export function entryAlpha(layout: TrackLayout, y: number): number {
+  const entry = layout.track.top + layout.note.height / 2
+  return Math.max(0, Math.min(1, (y - entry) / layout.note.height))
+}
+
 /** First index whose time is ≥ t in an ascending array (binary search, no allocation). */
 export function lowerBound(times: ArrayLike<number>, t: number): number {
   let lo = 0

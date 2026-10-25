@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { STRINGS } from '../home/layout'
-import { LEAD_SECONDS, lowerBound, maxNotesInWindow, MIN_TAP, noteY, trackLayout } from './layout'
+import { enterSeconds, entryAlpha, LEAD_SECONDS, lowerBound, maxNotesInWindow, MIN_TAP, noteY, trackLayout } from './layout'
 
 const viewports = [
   [320, 568],
@@ -72,6 +72,24 @@ describe('noteY', () => {
 
   it('depends only on the clock reading, not on how many frames ran', () => {
     expect(noteY(l, 5, 4.25)).toBeCloseTo(l.hitY - 0.75 * l.speed)
+  })
+})
+
+describe('note entry', () => {
+  it.each(viewports)('draws a chip only once it is wholly below the HUD at %ix%i', (w, h) => {
+    const l = trackLayout(w, h)
+    const y = noteY(l, 10, 10 - enterSeconds(l))
+    expect(y - l.note.height / 2).toBeGreaterThanOrEqual(l.track.top - 1e-9)
+    expect(l.pause.y + l.pause.height).toBeLessThanOrEqual(l.track.top)
+    expect(enterSeconds(l)).toBeLessThanOrEqual(LEAD_SECONDS)
+  })
+
+  it('fades the chip in over its height', () => {
+    const l = trackLayout(390, 844)
+    const entry = l.track.top + l.note.height / 2
+    expect(entryAlpha(l, entry)).toBe(0)
+    expect(entryAlpha(l, entry + l.note.height / 2)).toBeCloseTo(0.5)
+    expect(entryAlpha(l, l.hitY)).toBe(1)
   })
 })
 
