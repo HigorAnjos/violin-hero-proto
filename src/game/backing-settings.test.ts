@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_BACKING_VOLUME } from '../audio/backing/types'
 import {
   BACKING_STORAGE_KEY,
+  backingOutput,
   clampVolume,
   DEFAULT_BACKING_SETTINGS,
-  headphonesHint,
-  HEADPHONES_HINT,
+  guideOn,
   loadBackingSettings,
   saveBackingSettings,
+  backingHint,
+  HEADPHONES_HINT,
+  SPEAKER_HINT,
   volumeLabel,
+  type BackingSettings,
 } from './backing-settings'
 
 function memoryStorage(initial: Record<string, string> = {}) {
@@ -29,28 +33,38 @@ const throwing = {
   },
 }
 
+const settings = (patch: Partial<BackingSettings> = {}): BackingSettings => ({ ...DEFAULT_BACKING_SETTINGS, ...patch })
+const stored = (json: string) => memoryStorage({ [BACKING_STORAGE_KEY]: json })
+
 describe('loadBackingSettings', () => {
-  it('defaults to on at the backing default volume', () => {
-    expect(loadBackingSettings(memoryStorage())).toEqual({ enabled: true, volume: DEFAULT_BACKING_VOLUME })
+  it('defaults to orchestra on, default volume, speaker and no guide', () => {
+    expect(loadBackingSettings(memoryStorage())).toEqual({
+      enabled: true,
+      volume: DEFAULT_BACKING_VOLUME,
+      headphones: false,
+      guide: false,
+    })
     expect(loadBackingSettings(undefined)).toEqual(DEFAULT_BACKING_SETTINGS)
   })
 
   it('reads what was saved', () => {
     const storage = memoryStorage()
-    saveBackingSettings(storage, { enabled: false, volume: 0.3 })
-    expect(loadBackingSettings(storage)).toEqual({ enabled: false, volume: 0.3 })
+    const saved = { enabled: false, volume: 0.3, headphones: true, guide: true }
+    saveBackingSettings(storage, saved)
+    expect(loadBackingSettings(storage)).toEqual(saved)
   })
 
   it('falls back field by field on junk', () => {
-    expect(loadBackingSettings(memoryStorage({ [BACKING_STORAGE_KEY]: '{"enabled":"no","volume":0.2}' }))).toEqual({
-      enabled: true,
-      volume: 0.2,
-    })
-    expect(loadBackingSettings(memoryStorage({ [BACKING_STORAGE_KEY]: '{"enabled":false,"volume":7}' }))).toEqual({
-      enabled: false,
-      volume: 1,
-    })
-    expect(loadBackingSettings(memoryStorage({ [BACKING_STORAGE_KEY]: 'not json' }))).toEqual(DEFAULT_BACKING_SETTINGS)
+    expect(loadBackingSettings(stored('{"enabled":"no","volume":0.2,"headphones":1}'))).toEqual(settings({ volume: 0.2 }))
+    expect(loadBackingSettings(stored('{"enabled":false,"volume":7,"guide":true}'))).toEqual(
+      settings({ enabled: false, volume: 1, guide: true }),
+    )
+    expect(loadBackingSettings(stored('not json'))).toEqual(DEFAULT_BACKING_SETTINGS)
+    expect(loadBackingSettings(stored('null'))).toEqual(DEFAULT_BACKING_SETTINGS)
+  })
+
+  it('reads settings saved before the headphones choice existed', () => {
+    expect(loadBackingSettings(stored('{"enabled":false,"volume":0.4}'))).toEqual(settings({ enabled: false, volume: 0.4 }))
   })
 
   it('survives a storage that throws', () => {
@@ -58,8 +72,8 @@ describe('loadBackingSettings', () => {
   })
 
   it('returns a copy, so callers cannot change the defaults', () => {
-    const settings = loadBackingSettings(undefined)
-    settings.volume = 0
+    const loaded = loadBackingSettings(undefined)
+    loaded.volume = 0
     expect(DEFAULT_BACKING_SETTINGS.volume).toBe(DEFAULT_BACKING_VOLUME)
   })
 })
@@ -67,13 +81,31 @@ describe('loadBackingSettings', () => {
 describe('saveBackingSettings', () => {
   it('stores clamped JSON under its own key', () => {
     const storage = memoryStorage()
-    expect(saveBackingSettings(storage, { enabled: true, volume: -1 })).toBe(true)
-    expect(JSON.parse(storage.data.get(BACKING_STORAGE_KEY)!)).toEqual({ enabled: true, volume: 0 })
+    expect(saveBackingSettings(storage, settings({ volume: -1, headphones: true }))).toBe(true)
+    expect(JSON.parse(storage.data.get(BACKING_STORAGE_KEY)!)).toEqual({
+      enabled: true,
+      volume: 0,
+      headphones: true,
+      guide: false,
+    })
   })
 
   it('reports false without storage or when it throws', () => {
     expect(saveBackingSettings(undefined, DEFAULT_BACKING_SETTINGS)).toBe(false)
     expect(saveBackingSettings(throwing, DEFAULT_BACKING_SETTINGS)).toBe(false)
+  })
+})
+
+describe('output and guide', () => {
+  it('routes to headphones only when the player says so', () => {
+    expect(backingOutput(settings())).toBe('speaker')
+    expect(backingOutput(settings({ headphones: true }))).toBe('headphones')
+  })
+
+  it('plays the guide only with headphones on, keeping the choice for later', () => {
+    expect(guideOn(settings({ guide: true }))).toBe(false)
+    expect(guideOn(settings({ guide: true, headphones: true }))).toBe(true)
+    expect(guideOn(settings({ guide: false, headphones: true }))).toBe(false)
   })
 })
 
@@ -91,10 +123,18 @@ describe('volume helpers', () => {
   })
 })
 
-describe('headphonesHint', () => {
-  it('suggests headphones only with the backing on and a real microphone', () => {
-    expect(headphonesHint({ enabled: true, volume: 0.5 }, false)).toBe(HEADPHONES_HINT)
-    expect(headphonesHint({ enabled: false, volume: 0.5 }, false)).toBe('')
-    expect(headphonesHint({ enabled: true, volume: 0.5 }, true)).toBe('')
+describe('backingHint', () => {
+  it('without headphones, says the speaker plays quietly and headphones are better', () => {
+    expect(backingHint(settings(), false)).toBe(SPEAKER_HINT)
+  })
+
+  it('in headphones mode, says headphones are required', () => {
+    expect(backingHint(settings({ headphones: true }), false)).toBe(HEADPHONES_HINT)
+    expect(HEADPHONES_HINT).toMatch(/só com fone/)
+  })
+
+  it('says nothing with the orchestra off or a simulated player', () => {
+    expect(backingHint(settings({ enabled: false }), false)).toBe('')
+    expect(backingHint(settings({ headphones: true }), true)).toBe('')
   })
 })

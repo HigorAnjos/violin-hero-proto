@@ -156,6 +156,7 @@ describe('shareText', () => {
     a4: 442,
     userAgent: UA.androidChrome,
     backingVolume: 0.5,
+    headphones: false,
   }
   const played = result([['perfect', 10], ['perfect', -10], ['great', 90], ['good', -170], ['miss', null]], 1310, 4)
 
@@ -169,16 +170,16 @@ describe('shareText', () => {
         'Maior combo: 4',
         'Atraso calibrado: 152 ms',
         'Média das notas: −20 ms',
-        'Acompanhamento: 50% · Lá 442 Hz',
+        'Orquestra: 50% · sem fone · Lá 442 Hz',
         'Aparelho: Android 14 · Chrome 130',
       ].join('\n'),
     )
   })
 
   it('says when the device was never calibrated and the accompaniment was off', () => {
-    const text = shareText(played, { ...context, latencyMs: null, backingVolume: null })
+    const text = shareText(played, { ...context, latencyMs: null, backingVolume: null, headphones: true })
     expect(text).toContain('Atraso calibrado: não calibrado')
-    expect(text).toContain('Acompanhamento: desligado · Lá 442 Hz')
+    expect(text).toContain('Orquestra: desligada · de fone · Lá 442 Hz')
   })
 
   it('flags a simulated run on its own last line', () => {

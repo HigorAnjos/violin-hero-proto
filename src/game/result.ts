@@ -110,6 +110,7 @@ export interface ShareContext {
   userAgent: string
   /** Accompaniment volume 0..1, or null when it is off. */
   backingVolume: number | null
+  headphones: boolean
   /** Set in ?simular mode so a test run is never mistaken for a real one. */
   simulated?: string
 }
@@ -127,7 +128,7 @@ export function shareText(result: GameResult, context: ShareContext): string {
     `Maior combo: ${view.maxCombo}`,
     `Atraso calibrado: ${context.latencyMs === null ? 'não calibrado' : `${Math.round(context.latencyMs)} ms`}`,
     `Média das notas: ${offset === null ? '—' : formatSignedMs(offset)}`,
-    `Acompanhamento: ${context.backingVolume === null ? 'desligado' : `${Math.round(context.backingVolume * 100)}%`} · Lá ${context.a4} Hz`,
+    `Orquestra: ${context.backingVolume === null ? 'desligada' : `${Math.round(context.backingVolume * 100)}%`} · ${context.headphones ? 'de fone' : 'sem fone'} · Lá ${context.a4} Hz`,
     `Aparelho: ${deviceSummary(context.userAgent)}`,
   ]
   if (context.simulated) lines.push(`Teste simulado: ${context.simulated}`)
