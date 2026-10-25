@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { LOWEST_MIDI } from '../notes';
 import { C_MAJOR_SCALE } from '../../game/song';
 import type { Song } from '../../game/types';
-import { BASS_LOWEST_MIDI, CHORD_LOWEST_MIDI, arrange, parseMajorKey, placeAbove, triad } from './arrange';
+import { REGISTERS, arrange, parseMajorKey, placeAbove, triad } from './arrange';
 
 const C = 0;
 const F = 5;
@@ -82,8 +82,26 @@ describe('arrange the C major scale', () => {
     for (const note of [...arrangement.bass, ...arrangement.pad]) {
       expect(note.midi).toBeLessThanOrEqual(LOWEST_MIDI - 4);
     }
-    for (const note of arrangement.bass) expect(note.midi).toBeGreaterThanOrEqual(BASS_LOWEST_MIDI);
-    for (const note of arrangement.pad) expect(note.midi).toBeGreaterThanOrEqual(CHORD_LOWEST_MIDI);
+    for (const note of arrangement.bass) expect(note.midi).toBeGreaterThanOrEqual(REGISTERS.speaker.bass);
+    for (const note of arrangement.pad) expect(note.midi).toBeGreaterThanOrEqual(REGISTERS.speaker.chords);
+  });
+
+  it('for headphones: the same chords and timing, chords in C4–B4 and bass in C2–B2', () => {
+    const headphones = arrange(song, 'headphones');
+    expect(headphones.chords).toEqual(arrangement.chords);
+    expect(headphones.guide).toEqual(arrangement.guide);
+    for (const note of headphones.pad) {
+      expect(note.midi).toBeGreaterThanOrEqual(60);
+      expect(note.midi).toBeLessThanOrEqual(71);
+    }
+    for (const note of headphones.bass) {
+      expect(note.midi).toBeGreaterThanOrEqual(36);
+      expect(note.midi).toBeLessThanOrEqual(47);
+    }
+    expect(headphones.pad.map((n) => [n.beat, n.beats, n.midi % 12])).toEqual(
+      arrangement.pad.map((n) => [n.beat, n.beats, n.midi % 12]),
+    );
+    expect(headphones.bass.map((n) => n.midi)).toEqual([36, 36, 36, 43, 43, 36, 36, 36]);
   });
 
   it('guide is the melody itself', () => {

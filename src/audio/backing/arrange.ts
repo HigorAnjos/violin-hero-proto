@@ -1,4 +1,5 @@
 import type { Song } from '../../game/types';
+import type { BackingOutput } from './types';
 
 export type Degree = 'I' | 'IV' | 'V';
 
@@ -8,13 +9,22 @@ export const DEGREE_ROOT: Readonly<Record<Degree, number>> = { I: 0, IV: 5, V: 7
 const PREFERENCE: readonly Degree[] = ['I', 'V', 'IV'];
 const MAJOR_TRIAD = [0, 4, 7] as const;
 
+/** Lowest midi of the octave each part is placed in. */
+export interface Register {
+  bass: number;
+  chords: number;
+}
+
 /**
- * Bass E1–D♯2 and chords E2–D♯3, at most ~157 Hz: under the tracker's 170 Hz high-pass and a fourth below the violin's
- * G3, so a leak through the speaker reads as silence. F♯3 chords still read as G3 at 0 dB.
+ * speaker: bass E1–D♯2 and chords E2–D♯3, at most ~157 Hz: under the tracker's 170 Hz high-pass and a fourth below
+ * the violin's G3, so a leak through the speaker reads as silence (F♯3 chords still read as G3 at 0 dB). Barely
+ * audible on a phone speaker.
+ * headphones: bass C2–B2 and chords C4–B4, where they are heard; nothing reaches the microphone.
  */
-export const BASS_LOWEST_MIDI = 28;
-export const CHORD_LOWEST_MIDI = 40;
-export const CHORD_HIGHEST_MIDI = CHORD_LOWEST_MIDI + 11;
+export const REGISTERS: Readonly<Record<BackingOutput, Register>> = {
+  speaker: { bass: 28, chords: 40 },
+  headphones: { bass: 36, chords: 60 },
+};
 const DOWNBEAT_BONUS = 0.5;
 
 export interface BackingNote {
@@ -66,7 +76,8 @@ export function placeAbove(pitchClass: number, lowest: number): number {
  * the chord holding most of the melody's duration as chord tones, with the downbeat note weighing extra. The last
  * stretch is always I.
  */
-export function arrange(song: Song): Arrangement {
+export function arrange(song: Song, output: BackingOutput = 'speaker'): Arrangement {
+  const register = REGISTERS[output];
   const tonic = parseMajorKey(song.key);
   const span = song.beatsPerBar % 2 === 0 ? song.beatsPerBar / 2 : song.beatsPerBar;
   const end = song.notes.reduce((last, note) => Math.max(last, note.beat + note.beats), 0);
@@ -81,10 +92,10 @@ export function arrange(song: Song): Arrangement {
   const bass = chords.map(({ beat, beats, pitchClasses }) => ({
     beat,
     beats,
-    midi: placeAbove(pitchClasses[0], BASS_LOWEST_MIDI),
+    midi: placeAbove(pitchClasses[0], register.bass),
   }));
   const pad = chords.flatMap(({ beat, beats, pitchClasses }) =>
-    pitchClasses.map((pc) => ({ beat, beats, midi: placeAbove(pc, CHORD_LOWEST_MIDI) })),
+    pitchClasses.map((pc) => ({ beat, beats, midi: placeAbove(pc, register.chords) })),
   );
   const guide = song.notes.map(({ beat, beats, midi }) => ({ beat, beats, midi }));
   return { tonic, chords, bass, pad, guide };

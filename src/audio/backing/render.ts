@@ -2,6 +2,7 @@ import { DEFAULT_A4, midiToFrequency } from '../notes';
 import { secondsPerBeat } from '../../game/song';
 import type { Song } from '../../game/types';
 import { arrange, type BackingNote } from './arrange';
+import type { BackingOutput } from './types';
 import { VOICES, dbToGain, type Voice } from './voices';
 
 export interface RenderBackingOptions {
@@ -12,6 +13,7 @@ export interface RenderBackingOptions {
   startSeconds: number;
   a4?: number;
   guide?: boolean;
+  output?: BackingOutput;
   /** Bass and chords; off renders the guide alone. */
   accompaniment?: boolean;
   /** Linear master volume. */
@@ -22,7 +24,7 @@ export interface RenderBackingOptions {
 export function renderBacking(song: Song, options: RenderBackingOptions): Float32Array {
   const { sampleRate, length, startSeconds, a4 = DEFAULT_A4, guide = false, accompaniment = true, volume = 1 } = options;
   const out = new Float32Array(length);
-  const arrangement = arrange(song);
+  const arrangement = arrange(song, options.output);
   const beat = secondsPerBeat(song);
   const voices: [BackingNote[], Voice][] = [];
   if (accompaniment) voices.push([arrangement.bass, VOICES.bass], [arrangement.pad, VOICES.pad]);
