@@ -27,7 +27,8 @@ function playGame(options: PerformanceOptions): { result: GameResult; events: Ga
   return { result: judge.result(), events, wrong: take.wrong };
 }
 
-describe('whole game with the simulated player', () => {
+// ~3 s of pitch tracking per game; the default 5 s timeout trips when the whole suite shares the CPU.
+describe('whole game with the simulated player', { timeout: 30_000 }, () => {
   it('on time: every note Perfeito, full combo', () => {
     const { result } = playGame({ offsetMs: 0 });
     expect(result.judgments).toHaveLength(ODE_TO_JOY.notes.length);
