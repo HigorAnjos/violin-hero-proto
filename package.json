@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "pitchy": "^4.1.0",
-    "pixi.js": "^8.22.0"
+    "pixi.js": "^8.22.0",
+    "tone": "^15.1.22"
   },
   "devDependencies": {
     "@vitejs/plugin-basic-ssl": "^2.3.0",
