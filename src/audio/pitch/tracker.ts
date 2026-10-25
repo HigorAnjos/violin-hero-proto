@@ -115,7 +115,14 @@ export class PitchTracker {
       solfege: note.solfege,
       cents: (exact - midi) * 100,
       clarity,
+      level: this.lastHopLevel(window),
     };
+  }
+
+  private lastHopLevel(window: Float32Array): number {
+    let sum = 0;
+    for (let i = window.length - this.hopSize; i < window.length; i++) sum += window[i] * window[i];
+    return 10 * Math.log10(sum / this.hopSize + 1e-12);
   }
 
   private holdNote(exact: number): number {

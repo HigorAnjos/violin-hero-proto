@@ -48,6 +48,14 @@ describe('homeLayout', () => {
 
   it('keeps every tap target at least 52px tall', () => {
     for (const b of homeLayout(320, 480, 2).buttons) expect(b.height).toBeGreaterThanOrEqual(52)
+    for (const b of homeLayout(320, 568, 4).buttons) expect(b.height).toBeGreaterThanOrEqual(52)
+  })
+
+  it.each(viewports)('fits four buttons below the strings at %ix%i', (w, h) => {
+    const l = homeLayout(w, h, 4)
+    expect(l.strings[0].bottom).toBeGreaterThan(l.strings[0].top)
+    expect(l.strings[0].bottom + l.labelSize).toBeLessThan(l.buttons[0].y)
+    expect(l.buttons[3].y + l.buttons[3].height).toBeLessThanOrEqual(h)
   })
 
   it('caps the content width on wide screens', () => {
