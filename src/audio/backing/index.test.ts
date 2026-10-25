@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { midiToFrequency } from '../notes';
 import { C_MAJOR_SCALE } from '../../game/song';
 import { arrange } from './arrange';
-import { DEFAULT_BACKING_VOLUME, startBacking } from './index';
+import { DEFAULT_BACKING_VOLUME, KEEP_AUDIBLE_LEVEL, startBacking } from './index';
 import { VOICES } from './voices';
 
 const tone = vi.hoisted(() => {
@@ -47,19 +47,25 @@ const tone = vi.hoisted(() => {
       this.gain = new FakeParam(options.gain);
     }
   }
+  const debug = { logger: console as { warn: (...args: unknown[]) => void }, warnedAtTrigger: [] as boolean[] };
   class Synth extends FakeNode {
     triggers: [number, number, number][] = [];
     triggerAttackRelease(frequency: number, duration: number, time: number) {
       this.triggers.push([frequency, duration, time]);
+      debug.warnedAtTrigger.push(debug.logger === console);
     }
   }
-  return { created, contexts, Context, Gain, Synth, setContext: vi.fn() };
+  const setLogger = vi.fn((logger: typeof debug.logger) => {
+    debug.logger = logger;
+  });
+  return { created, contexts, Context, Gain, Synth, setContext: vi.fn(), setLogger, debug };
 });
 
 vi.mock('tone/build/esm/core/context/Context.js', () => ({ Context: tone.Context }));
 vi.mock('tone/build/esm/core/Global.js', () => ({ setContext: tone.setContext }));
 vi.mock('tone/build/esm/core/context/Gain.js', () => ({ Gain: tone.Gain }));
 vi.mock('tone/build/esm/instrument/Synth.js', () => ({ Synth: tone.Synth }));
+vi.mock('tone/build/esm/core/util/Debug.js', () => ({ setLogger: tone.setLogger }));
 vi.mock('tone', () => {
   throw new Error('the tone entry point builds a global Transport and a second AudioContext');
 });
@@ -70,15 +76,55 @@ type FakeSynth = InstanceType<typeof tone.Synth>;
 const A4 = 442;
 const BEAT = 60 / 90;
 
-function context(currentTime = 0) {
+function constantSource() {
+  return {
+    offset: { value: 1 },
+    connectedTo: undefined as unknown,
+    started: false,
+    stopped: false,
+    connect(destination: unknown) {
+      this.connectedTo = destination;
+    },
+    disconnect() {
+      this.connectedTo = undefined;
+    },
+    start() {
+      this.started = true;
+    },
+    stop() {
+      this.stopped = true;
+    },
+  };
+}
+
+function context(currentTime = 0, state: AudioContextState = 'running') {
   const handler = () => undefined;
-  return { currentTime, destination: { name: 'destination' }, onstatechange: handler } as unknown as AudioContext;
+  const sources: ReturnType<typeof constantSource>[] = [];
+  return {
+    currentTime,
+    state,
+    destination: { name: 'destination' },
+    onstatechange: handler,
+    sources,
+    createConstantSource() {
+      const source = constantSource();
+      sources.push(source);
+      return source;
+    },
+  } as unknown as AudioContext & { sources: ReturnType<typeof constantSource>[] };
 }
 
 async function start(
-  options: { startAt?: number; volume?: number; guide?: boolean; now?: number; output?: 'speaker' | 'headphones' } = {},
+  options: {
+    startAt?: number;
+    volume?: number;
+    guide?: boolean;
+    now?: number;
+    output?: 'speaker' | 'headphones';
+    state?: AudioContextState;
+  } = {},
 ) {
-  const ctx = context(options.now);
+  const ctx = context(options.now, options.state);
   const handle = await startBacking(ctx, C_MAJOR_SCALE, { startAt: 10, a4: A4, ...options });
   const [mute, master, guideGain] = tone.created.filter((n) => n instanceof tone.Gain) as FakeGain[];
   const synths = tone.created.filter((n) => n instanceof tone.Synth) as FakeSynth[];
@@ -90,6 +136,9 @@ beforeEach(() => {
   tone.created.length = 0;
   tone.contexts.length = 0;
   tone.setContext.mockClear();
+  tone.setLogger.mockClear();
+  tone.debug.logger = console;
+  tone.debug.warnedAtTrigger.length = 0;
 });
 
 describe('startBacking', () => {
@@ -183,5 +232,36 @@ describe('startBacking', () => {
     await expect(handle.stop()).resolves.toBeUndefined();
     handle.setVolume(0.9);
     expect(master.gain.ramps).toEqual([]);
+  });
+
+  it('makes the output audible right away, at −120 dBFS straight to the destination, so beat 1 is not the switch', async () => {
+    const { ctx, handle } = await start({ startAt: 15 });
+    const [source] = ctx.sources;
+    expect(ctx.sources).toHaveLength(1);
+    expect(source.offset.value).toBe(KEEP_AUDIBLE_LEVEL);
+    expect(20 * Math.log10(KEEP_AUDIBLE_LEVEL)).toBeLessThanOrEqual(-120);
+    expect(source.connectedTo).toBe(ctx.destination);
+    expect(source.started).toBe(true);
+    await handle.stop();
+    expect(source.stopped).toBe(true);
+    expect(source.connectedTo).toBeUndefined();
+  });
+
+  it('keeps the keep-audible source out of the mute, so disabling the orchestra does not bring the switch back', async () => {
+    const { ctx, handle, mute } = await start();
+    handle.setEnabled(false);
+    expect(ctx.sources[0].connectedTo).not.toBe(mute);
+  });
+
+  it('silences the Tone "suspended" warnings only while scheduling on a paused context', async () => {
+    await start({ state: 'suspended' });
+    expect(tone.debug.warnedAtTrigger.length).toBeGreaterThan(0);
+    expect(tone.debug.warnedAtTrigger.every((loud) => !loud)).toBe(true);
+    expect(tone.debug.logger).toBe(console);
+  });
+
+  it('leaves the Tone logger alone on a running context', async () => {
+    await start();
+    expect(tone.setLogger).not.toHaveBeenCalled();
   });
 });

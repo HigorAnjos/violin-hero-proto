@@ -9,6 +9,14 @@ export { arrange } from './arrange';
 
 const RAMP_SECONDS = 0.05;
 
+/**
+ * −120 dBFS of DC, below one 16-bit step: Chrome flags the page audible on any non-zero output and that silent→audible
+ * switch costs the main thread one long frame (33–50 ms at CPU 4×), so it happens during the countdown, not on beat 1.
+ */
+export const KEEP_AUDIBLE_LEVEL = 1e-6;
+
+const QUIET_LOGGER = { log: () => undefined, warn: () => undefined };
+
 function clampVolume(volume: number): number {
   return Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : DEFAULT_BACKING_VOLUME;
 }
@@ -23,11 +31,12 @@ function clampVolume(volume: number): number {
  * defers future attacks to the main-thread ticker.
  */
 export const startBacking: StartBacking = async (context, song, options) => {
-  const [{ Context }, { setContext }, { Gain }, { Synth }] = await Promise.all([
+  const [{ Context }, { setContext }, { Gain }, { Synth }, { setLogger }] = await Promise.all([
     import('tone/build/esm/core/context/Context.js'),
     import('tone/build/esm/core/Global.js'),
     import('tone/build/esm/core/context/Gain.js'),
     import('tone/build/esm/instrument/Synth.js'),
+    import('tone/build/esm/core/util/Debug.js'),
   ]);
   const raw = context as AudioContext;
   const previousStateHandler = raw.onstatechange;
@@ -39,6 +48,11 @@ export const startBacking: StartBacking = async (context, song, options) => {
   const { startAt, a4 = DEFAULT_A4, destination = context.destination, output = 'speaker' } = options;
   const arrangement = arrange(song, output);
   const beat = secondsPerBeat(song);
+
+  const keepAudible = raw.createConstantSource();
+  keepAudible.offset.value = KEEP_AUDIBLE_LEVEL;
+  keepAudible.connect(destination);
+  keepAudible.start();
 
   const mute = new Gain({ context: toneContext, gain: 1 }).connect(destination);
   const master = new Gain({ context: toneContext, gain: clampVolume(options.volume ?? DEFAULT_BACKING_VOLUME) });
@@ -73,9 +87,16 @@ export const startBacking: StartBacking = async (context, song, options) => {
       voiceFor(index).triggerAttackRelease(midiToFrequency(note.midi, a4), duration, Math.max(time, now));
     });
   };
-  schedule(() => bass, arrangement.bass);
-  schedule((index) => pad[index % 3], arrangement.pad);
-  schedule(() => guide, arrangement.guide);
+  // Rescheduling while paused (e.g. toggling headphones) warns once per note that the context is suspended; it resumes with the game.
+  const suspended = raw.state !== 'running';
+  if (suspended) setLogger(QUIET_LOGGER);
+  try {
+    schedule(() => bass, arrangement.bass);
+    schedule((index) => pad[index % 3], arrangement.pad);
+    schedule(() => guide, arrangement.guide);
+  } finally {
+    if (suspended) setLogger(console);
+  }
 
   let stopped = false;
   return {
@@ -92,6 +113,8 @@ export const startBacking: StartBacking = async (context, song, options) => {
     async stop() {
       if (stopped) return;
       stopped = true;
+      keepAudible.stop();
+      keepAudible.disconnect();
       for (const node of [bass, ...pad, guide, guideGain, master, mute]) node.dispose();
     },
   } satisfies BackingHandle;
