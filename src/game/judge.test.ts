@@ -10,9 +10,17 @@ function note(index: number, time: number, midi: number, duration = 0.6): TimedN
   return { index, time, duration, midi, string: 1 as StringIndex, frequency: midiToFrequency(midi, A4) };
 }
 
-function reading(time: number, midi: number, cents = 0): PitchReading {
+function reading(time: number, midi: number, cents = 0, level = -12): PitchReading {
   const n = noteFromMidi(midi, A4);
-  return { time, hz: n.frequency * 2 ** (cents / 1200), midi, name: n.name, solfege: n.solfege, cents, clarity: 0.97 };
+  const hz = n.frequency * 2 ** (cents / 1200);
+  return { time, hz, midi, name: n.name, solfege: n.solfege, cents, clarity: 0.97, level };
+}
+
+/** Readings every 10 ms from `from` to `to` (exclusive) with the level given by `level(t)`. */
+function held(from: number, to: number, midi: number, level: (t: number) => number = () => -12): PitchReading[] {
+  const out: PitchReading[] = [];
+  for (let t = from; t < to - 1e-9; t += 0.01) out.push(reading(t, midi, 0, level(t)));
+  return out;
 }
 
 /** Readings every 10 ms for an attack heard `offsetMs` from `noteTime`, held for `holdSec`. */
@@ -63,6 +71,17 @@ describe('timing windows', () => {
     judge.advance(1.4);
     expect(judgments()[0]).toMatchObject({ judgment: 'miss', offsetMs: null, points: 0 });
     expect(judge.done).toBe(true);
+  });
+
+  it('keeps a note open 100 ms past its window for readings delayed by main-thread jank', () => {
+    const { judge, judgments, feed } = setup([note(0, 1, 66)]);
+    judge.advance(1 + 0.22 + DETECTION_LAG_SECONDS + 0.09);
+    feed(attack(1, 215, 66));
+    expect(judgments()[0]).toMatchObject({ judgment: 'good' });
+
+    const late = setup([note(0, 1, 66)]);
+    late.judge.advance(1 + 0.22 + DETECTION_LAG_SECONDS + 0.11);
+    expect(late.judgments()[0]).toMatchObject({ judgment: 'miss' });
   });
 
   it('does not expire a note whose late attack is still being confirmed', () => {
@@ -144,11 +163,70 @@ describe('one reading, one note', () => {
     expect(judgments().map((e) => e.judgment)).toEqual(['perfect', 'perfect']);
   });
 
-  it('an attack between two equal notes goes to the nearest one', () => {
+  it('an attack in two windows goes to the earliest open note: late players stay in step', () => {
     const { judge, judgments, feed } = setup([note(0, 1, 66), note(1, 1.333, 66)]);
-    feed(attack(1, 200, 66, 0.1));
+    feed([...attack(1, 180, 66, 0.1), null, ...attack(1.333, 180, 66, 0.2)]);
     judge.advance(3);
-    expect(judgments().map((e) => e.judgment)).toEqual(['miss', 'good']);
+    expect(judgments().map((e) => e.judgment)).toEqual(['good', 'good']);
+  });
+
+  it('early players too: the repetition is not taken by the first attack', () => {
+    const { judge, judgments, feed } = setup([note(0, 1, 66), note(1, 1.333, 66)]);
+    feed([...attack(1, -180, 66, 0.1), null, ...attack(1.333, -180, 66, 0.2)]);
+    judge.advance(3);
+    expect(judgments().map((e) => e.judgment)).toEqual(['good', 'good']);
+  });
+});
+
+describe('bow changes and dropouts', () => {
+  const dipAt = (from: number, to: number, depth: number) => (t: number) => (t >= from && t < to ? -12 - depth : -12);
+
+  it('a dip in level and back, same pitch, is a new attack timed at the rise', () => {
+    const { judge, judgments, feed } = setup([note(0, 1, 66), note(1, 1.667, 66)]);
+    feed(held(1 + DETECTION_LAG_SECONDS, 2.2, 66, dipAt(1.627, 1.667, 6)));
+    judge.advance(3);
+    expect(judgments().map((e) => e.judgment)).toEqual(['perfect', 'perfect']);
+    expect((judgments()[1] as { offsetMs: number }).offsetMs).toBeCloseTo(-2, 0);
+  });
+
+  it('a slow ±3 dB bow tremor is not an attack', () => {
+    const { judge, judgments, feed } = setup([note(0, 1, 66), note(1, 1.667, 66)]);
+    feed(held(1 + DETECTION_LAG_SECONDS, 2.4, 66, (t) => -12 + 3 * Math.sin(2 * Math.PI * 7 * t)));
+    judge.advance(3);
+    expect(judgments().map((e) => e.judgment)).toEqual(['perfect', 'miss']);
+  });
+
+  it('a gentle diminuendo and swell is not an attack', () => {
+    const { judge, judgments, feed } = setup([note(0, 1, 66), note(1, 1.667, 66)]);
+    feed(held(1 + DETECTION_LAG_SECONDS, 2.4, 66, (t) => -12 - 8 * Math.sin(Math.PI * Math.min(1, Math.max(0, t - 1.2)))));
+    judge.advance(3);
+    expect(judgments().map((e) => e.judgment)).toEqual(['perfect', 'miss']);
+  });
+
+  it('a short silence counts through the dip seen in the last hop before the dropout', () => {
+    const { judge, judgments, feed } = setup([note(0, 1, 66), note(1, 1.667, 66)]);
+    feed([
+      ...held(1 + DETECTION_LAG_SECONDS, 1.64, 66),
+      reading(1.64, 66, 0, -24),
+      null,
+      ...held(1.68, 2.2, 66),
+    ]);
+    judge.advance(3);
+    expect(judgments().map((e) => e.judgment)).toEqual(['perfect', 'perfect']);
+  });
+
+  it('a clarity dropout under 60 ms inside a held note is not an attack', () => {
+    const { judge, judgments, feed } = setup([note(0, 1, 66), note(1, 1.667, 66)]);
+    feed([...held(1 + DETECTION_LAG_SECONDS, 1.6, 66), null, ...held(1.65, 2.2, 66)]);
+    judge.advance(3);
+    expect(judgments().map((e) => e.judgment)).toEqual(['perfect', 'miss']);
+  });
+
+  it('a two-reading blip to the neighbour is neither a note change nor an attack', () => {
+    const { judge, judgments, feed } = setup([note(0, 1, 66), note(1, 1.667, 66)]);
+    feed([...held(1 + DETECTION_LAG_SECONDS, 1.65, 66), ...held(1.65, 1.67, 65), ...held(1.67, 2.2, 66)]);
+    judge.advance(3);
+    expect(judgments().map((e) => e.judgment)).toEqual(['perfect', 'miss']);
   });
 });
 
